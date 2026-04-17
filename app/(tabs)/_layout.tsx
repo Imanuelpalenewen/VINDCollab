@@ -47,7 +47,11 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ focused, size }) => (
-            <TabIcon name={focused ? "home" : "home-outline"} focused={focused} size={size} />
+            <TabIcon
+              name={focused ? "home" : "home-outline"}
+              focused={focused}
+              size={size}
+            />
           ),
         }}
       />
@@ -78,19 +82,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="stats"
-        options={{
-          title: "Stats",
-          tabBarIcon: ({ focused, size }) => (
-            <TabIcon
-              name={focused ? "bar-chart" : "bar-chart-outline"}
-              focused={focused}
-              size={size}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="report"
         options={{
           title: "Report",
@@ -103,6 +94,23 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* More — rightmost tab */}
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: "More",
+          tabBarIcon: ({ focused, size }) => (
+            <TabIcon
+              name={focused ? "ellipsis-horizontal-circle" : "ellipsis-horizontal-circle-outline"}
+              focused={focused}
+              size={size}
+            />
+          ),
+        }}
+      />
+      {/* Hidden — accessible via router.push("/org-profile") */}
+      <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="stats" options={{ href: null }} />
     </Tabs>
   );
 }
