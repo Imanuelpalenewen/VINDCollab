@@ -22,7 +22,10 @@ export default defineSchema({
     bannerUrl: v.optional(v.string()),
     isVerified: v.boolean(),
     inviteCode: v.string(),
+    /** Timestamp when inviteCode was last generated — used to calculate 15-minute expiry */
+    inviteCodeCreatedAt: v.optional(v.number()),
   }).index("by_invite_code", ["inviteCode"]),
+
 
   events: defineTable({
     hostOrgId: v.id("organizations"),

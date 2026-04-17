@@ -32,6 +32,10 @@ function AuthGuard() {
     const inTabsGroup = segments[0] === "(tabs)";
     const onOnboarding = inAuthGroup && segments[1] === "onboarding";
 
+    // Root-level stack screens that authenticated + onboarded users may visit
+    const ALLOWED_ROOT_SCREENS = ["org-profile"];
+    const inAllowedRoot = ALLOWED_ROOT_SCREENS.includes(segments[0] ?? "");
+
     if (!isAuthenticated) {
       // No session → force to login
       if (!inAuthGroup) router.replace("/(auth)/login");
@@ -39,10 +43,11 @@ function AuthGuard() {
       // Authenticated but no org → force to onboarding
       if (!onOnboarding) router.replace("/(auth)/onboarding");
     } else {
-      // Fully onboarded → push into the main app
-      if (!inTabsGroup) router.replace("/(tabs)");
+      // Fully onboarded → only redirect if not in the main app OR an allowed root screen
+      if (!inTabsGroup && !inAllowedRoot) router.replace("/(tabs)");
     }
   }, [isAuthenticated, isLoading, hasOrg, segments]);
+
 
   return null; // Pure side-effect component
 }
@@ -59,6 +64,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="org-profile" options={{ headerShown: false, animation: "slide_from_right" }} />
       </Stack>
     </ConvexAuthProvider>
   );
