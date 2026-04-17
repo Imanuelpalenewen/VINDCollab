@@ -1,9 +1,9 @@
 import { View, Text } from 'react-native';
 
-export default function TabIndex() {
+export default function LoginScreen() {
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>Home Tab</Text>
+      <Text>Login Screen</Text>
     </View>
   );
 }
