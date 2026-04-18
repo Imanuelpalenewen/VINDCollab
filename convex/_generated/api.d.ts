@@ -8,9 +8,12 @@
  * @module
  */
 
+import type * as ai_partnerRecommender from "../ai/partnerRecommender.js";
 import type * as auth from "../auth.js";
+import type * as events from "../events.js";
 import type * as http from "../http.js";
 import type * as organizations from "../organizations.js";
+import type * as seed from "../seed.js";
 import type * as users from "../users.js";
 
 import type {
@@ -20,9 +23,12 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "ai/partnerRecommender": typeof ai_partnerRecommender;
   auth: typeof auth;
+  events: typeof events;
   http: typeof http;
   organizations: typeof organizations;
+  seed: typeof seed;
   users: typeof users;
 }>;
 

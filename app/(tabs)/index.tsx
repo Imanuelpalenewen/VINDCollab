@@ -1,177 +1,239 @@
-import { View, Text, TouchableOpacity, Image, StyleSheet, StatusBar } from "react-native";
+import React from "react";
+import {
+  View, Text, TouchableOpacity, StyleSheet,
+  ScrollView, Image, StatusBar,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "convex/react";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/useAuth";
+import { EventCard } from "@/components/events/EventCard";
 import { Colors } from "@/constants/Colors";
 
-const AVATAR_PALETTE = ["#3B82F6", "#8B5CF6", "#EF4444", "#10B981", "#F59E0B", "#06B6D4"];
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
+const AVATAR_PALETTE = ["#3B82F6","#8B5CF6","#EF4444","#10B981","#F59E0B","#06B6D4"];
+function getInitials(name: string) {
+  const p = name.trim().split(/\s+/);
+  return p.length >= 2 ? (p[0][0]+p[p.length-1][0]).toUpperCase() : name.slice(0,2).toUpperCase();
+}
+function getAvatarColor(name: string) {
+  let h = 0; for (let i = 0; i < name.length; i++) h += name.charCodeAt(i);
+  return AVATAR_PALETTE[h % AVATAR_PALETTE.length];
 }
 
-function getAvatarColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash += name.charCodeAt(i);
-  return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
-}
-
-/**
- * Home / Dashboard screen — placeholder until Session 3 (Event Listing).
- * Sign-out has been moved to the More tab.
- */
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const org = useQuery(api.organizations.getMyOrg);
+  const stats = useQuery(api.organizations.getOrgStats);
+  const myEvents = useQuery(api.events.listMyEvents) ?? [];
+  const openEvents = useQuery(api.events.listOpenEvents) ?? [];
 
   const avatarColor = getAvatarColor(org?.name ?? user?.name ?? "?");
   const initials = getInitials(org?.name ?? user?.name ?? "?");
+
+  const activeEventCount = myEvents.filter(
+    (e) => e.status === "OPEN" || e.status === "PLANNING" || e.status === "EXECUTING"
+  ).length;
 
   return (
     <SafeAreaView style={styles.flex} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.BG_DARK} />
 
-      <View style={styles.container}>
-        {/* ── Header ── */}
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Header ─────────────────────────────────────── */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Hello 👋</Text>
-            <Text style={styles.name}>{user?.name ?? "—"}</Text>
-            <Text style={styles.email}>{user?.email ?? ""}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>Good day 👋</Text>
+            <Text style={styles.orgName} numberOfLines={1}>
+              {org?.name ?? user?.name ?? "—"}
+            </Text>
           </View>
 
-          {/* Avatar button — opens org profile */}
-          <TouchableOpacity
-            style={[styles.avatarBtn, { borderColor: avatarColor + "55" }]}
-            onPress={() => router.push("/org-profile")}
-            activeOpacity={0.8}
-          >
-            {org?.logoUrl ? (
-              <Image
-                source={{ uri: org.logoUrl }}
-                style={styles.avatarImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={[styles.avatarInner, { backgroundColor: avatarColor + "22" }]}>
-                <Text style={[styles.avatarInitials, { color: avatarColor }]}>
-                  {initials}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            {/* Notification bell (placeholder for future) */}
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => {}}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="notifications-outline" size={20} color={Colors.TEXT_SECONDARY} />
+            </TouchableOpacity>
+
+            {/* Avatar → org profile */}
+            <TouchableOpacity
+              style={[styles.avatarBtn, { borderColor: avatarColor + "55" }]}
+              onPress={() => router.push("/org-profile")}
+              activeOpacity={0.8}
+            >
+              {org?.logoUrl ? (
+                <Image source={{ uri: org.logoUrl }} style={styles.avatarImage} resizeMode="cover" />
+              ) : (
+                <View style={[styles.avatarInner, { backgroundColor: avatarColor + "22" }]}>
+                  <Text style={[styles.avatarText, { color: avatarColor }]}>{initials}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* ── Stats row ── */}
+        {/* ── Quick Stats ─────────────────────────────────── */}
         <View style={styles.statsRow}>
           {[
-            { label: "My Events", value: "0", icon: "calendar-outline" },
-            { label: "Partners", value: "0", icon: "people-outline" },
-            { label: "Tasks", value: "0", icon: "checkmark-circle-outline" },
-          ].map((stat) => (
-            <View key={stat.label} style={styles.statCard}>
-              <Ionicons name={stat.icon as any} size={20} color={Colors.PRIMARY} />
-              <Text style={styles.statValue}>{stat.value}</Text>
-              <Text style={styles.statLabel}>{stat.label}</Text>
+            { label: "Active\nEvents", value: activeEventCount, color: "#93C5FD", bg: "rgba(59,130,246,0.10)" },
+            { label: "Partners", value: stats?.partnerCount ?? 0, color: "#C4B5FD", bg: "rgba(139,92,246,0.10)" },
+            { label: "Total\nEvents", value: myEvents.length, color: "#6EE7B7", bg: "rgba(16,185,129,0.10)" },
+          ].map((s) => (
+            <View key={s.label} style={[styles.statCard, { backgroundColor: s.bg }]}>
+              <Text style={[styles.statValue, { color: s.color }]}>{s.value}</Text>
+              <Text style={styles.statLabel}>{s.label}</Text>
             </View>
           ))}
         </View>
 
-        {/* ── Placeholder ── */}
-        <View style={styles.placeholder}>
-          <Ionicons name="construct-outline" size={40} color={Colors.TEXT_MUTED} />
-          <Text style={styles.placeholderTitle}>Event Listing</Text>
-          <Text style={styles.placeholderText}>
-            Coming in Session 3 — Event creation wizard & listing
-          </Text>
+        {/* ── My Events ───────────────────────────────────── */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>My Events</Text>
+          <TouchableOpacity
+            style={styles.newEventBtn}
+            onPress={() => router.push("/events/create")}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={15} color={Colors.PRIMARY} />
+            <Text style={styles.newEventBtnText}>New Event</Text>
+          </TouchableOpacity>
         </View>
-      </View>
+
+        {myEvents.length === 0 ? (
+          <TouchableOpacity
+            style={styles.emptyCard}
+            onPress={() => router.push("/events/create")}
+            activeOpacity={0.8}
+          >
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="calendar-outline" size={30} color={Colors.PRIMARY} />
+            </View>
+            <Text style={styles.emptyTitle}>No events yet</Text>
+            <Text style={styles.emptyText}>
+              Create your first event and start collaborating with other organizations.
+            </Text>
+            <View style={styles.emptyBtn}>
+              <Ionicons name="add" size={14} color={Colors.PRIMARY} />
+              <Text style={styles.emptyBtnText}>Create Event</Text>
+            </View>
+          </TouchableOpacity>
+        ) : (
+          myEvents.map((event) => (
+            <EventCard
+              key={event._id}
+              event={event as any}
+              onPress={() => router.push(`/events/${event._id}`)}
+            />
+          ))
+        )}
+
+        {/* ── Discover ────────────────────────────────────── */}
+        {openEvents.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { marginTop: 24, marginBottom: 12 }]}>
+              Discover
+            </Text>
+            {openEvents.map((event) => (
+              <EventCard
+                key={event._id}
+                event={event as any}
+                onPress={() => router.push(`/events/${event._id}`)}
+                showOrg
+              />
+            ))}
+          </>
+        )}
+
+        <View style={{ height: 90 }} />
+      </ScrollView>
+
+      {/* ── FAB ─────────────────────────────────────────── */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push("/events/create")}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.BG_DARK },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 8,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 28,
-  },
-  greeting: { fontSize: 14, color: Colors.TEXT_MUTED, marginBottom: 2 },
-  name: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: Colors.TEXT_PRIMARY,
-    letterSpacing: -0.3,
-  },
-  email: { fontSize: 12, color: Colors.TEXT_SECONDARY, marginTop: 2 },
+  container: { paddingHorizontal: 20, paddingTop: 8 },
 
-  // Avatar button (top-right)
+  // Header
+  header: { flexDirection: "row", alignItems: "center", marginBottom: 24, gap: 12 },
+  greeting: { fontSize: 13, color: Colors.TEXT_MUTED, marginBottom: 2 },
+  orgName: { fontSize: 20, fontWeight: "800", color: Colors.TEXT_PRIMARY, letterSpacing: -0.3 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  iconBtn: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: Colors.BG_CARD, borderWidth: 1, borderColor: Colors.BORDER,
+    alignItems: "center", justifyContent: "center",
+  },
   avatarBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    borderWidth: 2,
-    overflow: "hidden",
+    width: 44, height: 44, borderRadius: 14, borderWidth: 2, overflow: "hidden",
   },
-  avatarInner: {
-    width: "100%",
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  avatarInner: { width: "100%", height: "100%", alignItems: "center", justifyContent: "center" },
   avatarImage: { width: "100%", height: "100%" },
-  avatarInitials: { fontSize: 17, fontWeight: "800" },
+  avatarText: { fontSize: 16, fontWeight: "800" },
 
   // Stats
-  statsRow: { flexDirection: "row", gap: 12, marginBottom: 28 },
+  statsRow: { flexDirection: "row", gap: 8, marginBottom: 28 },
   statCard: {
-    flex: 1,
-    backgroundColor: Colors.BG_CARD,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.BORDER,
-    padding: 14,
-    alignItems: "center",
-    gap: 4,
+    flex: 1, borderRadius: 14, borderWidth: 1, borderColor: Colors.BORDER,
+    padding: 14, alignItems: "center", gap: 3,
   },
-  statValue: { fontSize: 22, fontWeight: "800", color: Colors.TEXT_PRIMARY },
-  statLabel: {
-    fontSize: 10,
-    color: Colors.TEXT_MUTED,
-    fontWeight: "600",
-    textAlign: "center",
-  },
+  statValue: { fontSize: 22, fontWeight: "800" },
+  statLabel: { fontSize: 10, color: Colors.TEXT_MUTED, fontWeight: "600", textAlign: "center" },
 
-  // Placeholder
-  placeholder: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
+  // Section headers
+  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  sectionTitle: { fontSize: 14, fontWeight: "700", color: Colors.TEXT_SECONDARY, letterSpacing: 0.3 },
+  newEventBtn: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
+    backgroundColor: "rgba(59,130,246,0.12)", borderWidth: 1, borderColor: "rgba(59,130,246,0.3)",
   },
-  placeholderTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: Colors.TEXT_SECONDARY,
+  newEventBtnText: { color: Colors.PRIMARY, fontSize: 12, fontWeight: "700" },
+
+  // Empty state
+  emptyCard: {
+    backgroundColor: Colors.BG_CARD, borderRadius: 18, borderWidth: 1,
+    borderColor: Colors.BORDER, padding: 28, alignItems: "center", gap: 10, marginBottom: 10,
   },
-  placeholderText: {
-    color: Colors.TEXT_MUTED,
-    fontSize: 13,
-    textAlign: "center",
-    lineHeight: 20,
-    paddingHorizontal: 24,
+  emptyIconWrap: {
+    width: 60, height: 60, borderRadius: 18, backgroundColor: "rgba(59,130,246,0.1)",
+    borderWidth: 1, borderColor: "rgba(59,130,246,0.2)", alignItems: "center", justifyContent: "center",
+  },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: Colors.TEXT_PRIMARY },
+  emptyText: { fontSize: 13, color: Colors.TEXT_MUTED, textAlign: "center", lineHeight: 20 },
+  emptyBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4,
+    paddingHorizontal: 16, paddingVertical: 9, borderRadius: 10,
+    backgroundColor: "rgba(59,130,246,0.12)", borderWidth: 1, borderColor: "rgba(59,130,246,0.3)",
+  },
+  emptyBtnText: { color: Colors.PRIMARY, fontSize: 13, fontWeight: "700" },
+
+  // FAB
+  fab: {
+    position: "absolute", bottom: 24, right: 24,
+    width: 58, height: 58, borderRadius: 29,
+    backgroundColor: Colors.PRIMARY,
+    alignItems: "center", justifyContent: "center",
+    shadowColor: Colors.PRIMARY, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
   },
 });
