@@ -33,7 +33,7 @@ function AuthGuard() {
     const onOnboarding = inAuthGroup && segments[1] === "onboarding";
 
     // Root-level stack screens that authenticated + onboarded users may visit
-    const ALLOWED_ROOT_SCREENS = ["org-profile"];
+    const ALLOWED_ROOT_SCREENS = ["org-profile", "events"];
     const inAllowedRoot = ALLOWED_ROOT_SCREENS.includes(segments[0] ?? "");
 
     if (!isAuthenticated) {
@@ -65,7 +65,11 @@ export default function RootLayout() {
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="org-profile" options={{ headerShown: false, animation: "slide_from_right" }} />
+        <Stack.Screen name="events/create" options={{ headerShown: false, animation: "slide_from_bottom" }} />
+        <Stack.Screen name="events/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
+        <Stack.Screen name="events/partners" options={{ headerShown: false, animation: "slide_from_right" }} />
       </Stack>
     </ConvexAuthProvider>
   );
 }
+

@@ -152,11 +152,15 @@ export default function OrgProfileScreen() {
 
   // ── Loading ───────────────────────────────────────────────────────────────
 
-  if (org === undefined || name === null) {
+  if (org === undefined || org === null || name === null) {
     return (
       <View style={styles.centered}>
         <StatusBar barStyle="light-content" backgroundColor={Colors.BG_DARK} />
-        <ActivityIndicator size="large" color={Colors.PRIMARY} />
+        {org === null ? (
+          <Text style={{ color: Colors.TEXT_SECONDARY }}>Organization not found</Text>
+        ) : (
+          <ActivityIndicator size="large" color={Colors.PRIMARY} />
+        )}
       </View>
     );
   }
