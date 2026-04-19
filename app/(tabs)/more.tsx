@@ -308,6 +308,19 @@ export default function MoreScreen() {
           />
         </View>
 
+        {/* ── COLLABORATIONS section ────────────────────── */}
+        <Text style={styles.sectionLabel}>COLLABORATIONS</Text>
+        <View style={styles.menuGroup}>
+          <MenuRow
+            icon="mail-outline"
+            iconBg="rgba(59,130,246,0.2)"
+            iconColor="#93C5FD"
+            label="Invitations"
+            subtitle="View partnership proposals"
+            onPress={() => router.push("/invitations/inbox")}
+          />
+        </View>
+
         {/* ── ACCOUNT section ───────────────────────────── */}
         <Text style={styles.sectionLabel}>ACCOUNT</Text>
         <View style={styles.menuGroup}>

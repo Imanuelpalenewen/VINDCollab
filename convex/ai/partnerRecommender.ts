@@ -269,10 +269,10 @@ Rules:
 
     let response: Response | null = null;
     let errBody = "";
-    
+
     // Fallback model cascade
     const allowedModels = ["gemini-2.0-flash", "gemini-2.0-flash-lite"];
-    
+
     for (const model of allowedModels) {
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       try {
@@ -297,8 +297,9 @@ Rules:
     }
 
     if (!response || !response.ok) {
-      errBody = response ? await response.text() : errBody || "Unknown network error or all models failed.";
+      errBody = errBody || "Unknown network error or all models failed.";
       const status = response ? response.status : 500;
+
       
       // Fallback for Rate Limit / Quota Exceeded 
       if (status === 429 || errBody.includes("Quota")) {

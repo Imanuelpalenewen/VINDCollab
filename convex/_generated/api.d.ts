@@ -12,6 +12,7 @@ import type * as ai_partnerRecommender from "../ai/partnerRecommender.js";
 import type * as auth from "../auth.js";
 import type * as events from "../events.js";
 import type * as http from "../http.js";
+import type * as invitations from "../invitations.js";
 import type * as organizations from "../organizations.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
@@ -27,6 +28,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   events: typeof events;
   http: typeof http;
+  invitations: typeof invitations;
   organizations: typeof organizations;
   seed: typeof seed;
   users: typeof users;
