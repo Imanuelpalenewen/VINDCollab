@@ -142,14 +142,10 @@ export default function PartnersRecommendationScreen() {
   }, []);
 
   const handleInvite = (orgId: string) => {
-    const orgName =
-      result?.recommendations.find((r) => r.orgId === orgId)?.orgName ??
-      "this organization";
-    Alert.alert(
-      "Send Invitation",
-      `Invite ${orgName} to collaborate on this event?\n\n(Invitation System will be available in the next update.)`,
-      [{ text: "OK" }],
-    );
+    router.push({
+      pathname: "/invitations/send",
+      params: { eventId, recipientOrgId: orgId },
+    });
   };
 
   const timeSince = (ms: number) => {

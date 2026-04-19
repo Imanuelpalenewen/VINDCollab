@@ -91,4 +91,50 @@ export default defineSchema({
     generatedAt: v.number(),
     expiresAt: v.optional(v.number()),
   }).index("by_event_type", ["eventId", "type"]),
+
+  invitations: defineTable({
+    eventId: v.id("events"),
+    senderOrgId: v.id("organizations"),
+    recipientOrgId: v.id("organizations"),
+    status: v.union(
+      v.literal("PENDING"),
+      v.literal("ACCEPTED"),
+      v.literal("DECLINED"),
+      v.literal("NEGOTIATING"),
+      v.literal("EXPIRED")
+    ),
+    proposedRole: v.string(),
+    resourceContribution: v.optional(v.string()),
+    revenueSharing: v.optional(v.object({
+      percentage: v.number(),
+      method: v.string(),
+    })),
+    responseDeadline: v.number(),
+    personalMessage: v.optional(v.string()),
+    declineReason: v.optional(v.string()),
+    negotiationRounds: v.number(),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_sender", ["senderOrgId"])
+    .index("by_recipient", ["recipientOrgId"])
+    .index("by_status", ["status"]),
+
+  negotiationHistory: defineTable({
+    invitationId: v.id("invitations"),
+    round: v.number(),
+    proposedBy: v.id("organizations"),
+    proposedRole: v.string(),
+    resourceContribution: v.optional(v.string()),
+    revenueSharing: v.optional(v.object({
+      percentage: v.number(),
+      method: v.string(),
+    })),
+    notes: v.optional(v.string()),
+    respondedBy: v.optional(v.id("organizations")),
+    response: v.optional(v.union(
+      v.literal("ACCEPTED"),
+      v.literal("DECLINED"),
+      v.literal("COUNTER_PROPOSED")
+    )),
+  }).index("by_invitation", ["invitationId"]),
 });
