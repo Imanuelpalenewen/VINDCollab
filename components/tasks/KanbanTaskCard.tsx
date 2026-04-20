@@ -66,43 +66,24 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
     };
   }, []);
 
-  const handlePressIn = () => {
-    hasDraggedRef.current = false;
-    setIsLongPressActive(false);
-
-    // Start long press timer
-    longPressTimerRef.current = setTimeout(() => {
-      setIsLongPressDraggable(true);
-      setIsLongPressActive(true);
-    }, LONG_PRESS_DURATION);
-  };
-
-  const handlePressOut = () => {
-    // Cancel timer if user released before long press
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-
-    // Only reset if we haven't started dragging
-    if (!hasDraggedRef.current) {
-      setIsLongPressDraggable(false);
-      setIsLongPressActive(false);
-    }
-  };
-
-  const handlePress = () => {
-    // Only trigger onPress if we didn't drag
-    if (!hasDraggedRef.current) {
-      onPress();
-    }
-  };
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => isLongPressDraggable,
-      onMoveShouldSetPanResponder: (evt, { dx, dy }) =>
-        isLongPressDraggable && (Math.abs(dx) > 10 || Math.abs(dy) > 10),
+  // Update panResponder when drag states change
+  useEffect(() => {
+    const newPanResponder = PanResponder.create({
+      onStartShouldSetPanResponder: (evt, { dx, dy }) => {
+        // Only claim if long press is active
+        return isLongPressDraggable;
+      },
+      onMoveShouldSetPanResponder: (evt, { dx, dy }) => {
+        // More aggressive: claim if we have movement after long press
+        if (!isLongPressDraggable) return false;
+        // Claim if moving more than small threshold
+        const hasMoved = Math.abs(dx) > 5 || Math.abs(dy) > 5;
+        return hasMoved;
+      },
+      onShouldBlockNativeResponder: () => {
+        // Block parent ScrollView from responding when we're dragging
+        return isDragging;
+      },
       onPanResponderGrant: () => {
         hasDraggedRef.current = true;
         setIsDragging(true);
@@ -161,8 +142,42 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
           useNativeDriver: false,
         }).start();
       },
-    })
-  ).current;
+    });
+
+    panResponder.current = newPanResponder;
+  }, [isLongPressDraggable, isDragging]);
+
+  const handlePressIn = () => {
+    hasDraggedRef.current = false;
+    setIsLongPressActive(false);
+
+    // Start long press timer
+    longPressTimerRef.current = setTimeout(() => {
+      setIsLongPressDraggable(true);
+      setIsLongPressActive(true);
+    }, LONG_PRESS_DURATION);
+  };
+
+  const handlePressOut = () => {
+    // Cancel timer if user released before long press
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    // Only reset if we haven't started dragging
+    if (!hasDraggedRef.current) {
+      setIsLongPressDraggable(false);
+      setIsLongPressActive(false);
+    }
+  };
+
+  const handlePress = () => {
+    // Only trigger onPress if we didn't drag
+    if (!hasDraggedRef.current) {
+      onPress();
+    }
+  };
 
   const getPriorityColor = (priority?: string): string => {
     switch (priority) {
