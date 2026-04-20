@@ -3,6 +3,7 @@ import { Colors } from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
+  FlatList,
   ScrollView,
   StyleSheet,
   Text,
