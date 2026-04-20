@@ -1,6 +1,7 @@
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { KanbanColumn } from "@/components/tasks/KanbanColumn";
 import { TaskDetailBottomSheet } from "@/components/tasks/TaskDetailBottomSheet";
+import { DragProvider, useDragContext } from "@/components/tasks/DragContext";
 import TaskEditModal from "@/components/tasks/TaskEditModal";
 import { Colors } from "@/constants/Colors";
 import { api } from "@/convex/_generated/api";
@@ -181,6 +182,62 @@ export default function TasksScreen() {
   );
 
   return (
+    <DragProvider>
+      <TasksScreenContent
+        myEvents={myEvents}
+        selectedEventId={selectedEventId}
+        setSelectedEventId={setSelectedEventId}
+        selectedTaskId={selectedTaskId}
+        setSelectedTaskId={setSelectedTaskId}
+        kanbanData={kanbanData}
+        partnerships={partnerships}
+        selectedEvent={selectedEvent}
+        allTasks={allTasks}
+        selectedTask={selectedTask}
+        partnerOrgs={partnerOrgs}
+        handleMoveTask={handleMoveTask}
+        handleDeleteTask={handleDeleteTask}
+        handleCreateTask={handleCreateTask}
+        handleUpdateTask={handleUpdateTask}
+        addTaskVisible={addTaskVisible}
+        setAddTaskVisible={setAddTaskVisible}
+        editTaskVisible={editTaskVisible}
+        setEditTaskVisible={setEditTaskVisible}
+        editTaskId={editTaskId}
+        setEditTaskId={setEditTaskId}
+      />
+    </DragProvider>
+  );
+}
+
+interface TasksScreenContentProps {
+  myEvents: Event[];
+  selectedEventId: string | null;
+  setSelectedEventId: (id: string | null) => void;
+  selectedTaskId: string | null;
+  setSelectedTaskId: (id: string | null) => void;
+  kanbanData: any;
+  partnerships: any;
+  selectedEvent: Event | null;
+  allTasks: any[];
+  selectedTask: any;
+  partnerOrgs: any[];
+  handleMoveTask: any;
+  handleDeleteTask: any;
+  handleCreateTask: any;
+  handleUpdateTask: any;
+  addTaskVisible: boolean;
+  setAddTaskVisible: (v: boolean) => void;
+  editTaskVisible: boolean;
+  setEditTaskVisible: (v: boolean) => void;
+  editTaskId: string | null;
+  setEditTaskId: (id: string | null) => void;
+}
+
+function TasksScreenContent(props: TasksScreenContentProps) {
+  const { isDraggingTask } = useDragContext();
+
+  return (
     <SafeAreaView style={styles.flex} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.BG_DARK} />
 
@@ -196,7 +253,7 @@ export default function TasksScreen() {
           <Text style={styles.label}>Select Event</Text>
           <FlatList
             horizontal
-            data={myEvents}
+            data={props.myEvents}
             keyExtractor={(e: Event) => e._id}
             scrollEnabled={true}
             showsHorizontalScrollIndicator={false}
@@ -205,14 +262,14 @@ export default function TasksScreen() {
               <TouchableOpacity
                 style={[
                   styles.eventPill,
-                  selectedEventId === event._id && styles.eventPillActive,
+                  props.selectedEventId === event._id && styles.eventPillActive,
                 ]}
-                onPress={() => setSelectedEventId(event._id)}
+                onPress={() => props.setSelectedEventId(event._id)}
               >
                 <Text
                   style={[
                     styles.eventPillText,
-                    selectedEventId === event._id && styles.eventPillTextActive,
+                    props.selectedEventId === event._id && styles.eventPillTextActive,
                   ]}
                   numberOfLines={1}
                 >
@@ -224,9 +281,9 @@ export default function TasksScreen() {
         </View>
 
         {/* Content */}
-        {!selectedEventId || !kanbanData ? (
+        {!props.selectedEventId || !props.kanbanData ? (
           <View style={styles.emptyContainer}>
-            {!selectedEventId ? (
+            {!props.selectedEventId ? (
               <>
                 <Ionicons name="calendar-outline" size={48} color={Colors.BORDER} />
                 <Text style={styles.emptyTitle}>Pilih event untuk melihat tasks</Text>
@@ -244,75 +301,76 @@ export default function TasksScreen() {
             style={styles.kanbanContainer}
             contentContainerStyle={styles.kanbanContent}
             showsHorizontalScrollIndicator={false}
+            scrollEnabled={!isDraggingTask}
           >
             <KanbanColumn
               status="TODO"
-              tasks={kanbanData.TODO || []}
-              onTaskPress={(task) => setSelectedTaskId(task._id)}
-              onTaskStatusChange={handleMoveTask}
-              onTaskDelete={handleDeleteTask}
-              onAddTask={() => setAddTaskVisible(true)}
+              tasks={props.kanbanData.TODO || []}
+              onTaskPress={(task) => props.setSelectedTaskId(task._id)}
+              onTaskStatusChange={props.handleMoveTask}
+              onTaskDelete={props.handleDeleteTask}
+              onAddTask={() => props.setAddTaskVisible(true)}
             />
             <KanbanColumn
               status="IN_PROGRESS"
-              tasks={kanbanData.IN_PROGRESS || []}
-              onTaskPress={(task) => setSelectedTaskId(task._id)}
-              onTaskStatusChange={handleMoveTask}
-              onTaskDelete={handleDeleteTask}
+              tasks={props.kanbanData.IN_PROGRESS || []}
+              onTaskPress={(task) => props.setSelectedTaskId(task._id)}
+              onTaskStatusChange={props.handleMoveTask}
+              onTaskDelete={props.handleDeleteTask}
             />
             <KanbanColumn
               status="DONE"
-              tasks={kanbanData.DONE || []}
-              onTaskPress={(task) => setSelectedTaskId(task._id)}
-              onTaskStatusChange={handleMoveTask}
-              onTaskDelete={handleDeleteTask}
+              tasks={props.kanbanData.DONE || []}
+              onTaskPress={(task) => props.setSelectedTaskId(task._id)}
+              onTaskStatusChange={props.handleMoveTask}
+              onTaskDelete={props.handleDeleteTask}
             />
           </ScrollView>
         )}
       </View>
 
       {/* Task Detail Bottom Sheet */}
-      {selectedTask && (
+      {props.selectedTask && (
         <TaskDetailBottomSheet
-          task={selectedTask as any}
-          visible={!!selectedTaskId}
-          onClose={() => setSelectedTaskId(null)}
-          onStatusChange={handleMoveTask}
-          onDelete={handleDeleteTask}
+          task={props.selectedTask as any}
+          visible={!!props.selectedTaskId}
+          onClose={() => props.setSelectedTaskId(null)}
+          onStatusChange={props.handleMoveTask}
+          onDelete={props.handleDeleteTask}
           onEdit={() => {
-            setEditTaskId(selectedTaskId);
-            setEditTaskVisible(true);
-            setSelectedTaskId(null);
+            props.setEditTaskId(props.selectedTaskId);
+            props.setEditTaskVisible(true);
+            props.setSelectedTaskId(null);
           }}
         />
       )}
 
       {/* Add Task Modal */}
-      {selectedEventId && (
+      {props.selectedEventId && (
         <AddTaskModal
-          visible={addTaskVisible}
-          eventId={selectedEventId}
-          onClose={() => setAddTaskVisible(false)}
-          onTaskCreated={() => setAddTaskVisible(false)}
-          partnerOrgs={partnerOrgs}
-          onCreateTask={handleCreateTask}
+          visible={props.addTaskVisible}
+          eventId={props.selectedEventId}
+          onClose={() => props.setAddTaskVisible(false)}
+          onTaskCreated={() => props.setAddTaskVisible(false)}
+          partnerOrgs={props.partnerOrgs}
+          onCreateTask={props.handleCreateTask}
         />
       )}
 
       {/* Edit Task Modal */}
-      {editTaskId && selectedEvent && selectedTask && (
+      {props.editTaskId && props.selectedEvent && props.selectedTask && (
         <TaskEditModal
-          isVisible={editTaskVisible}
-          task={selectedTask as any}
-          partners={partnerOrgs}
+          isVisible={props.editTaskVisible}
+          task={props.selectedTask as any}
+          partners={props.partnerOrgs}
           onClose={() => {
-            setEditTaskVisible(false);
-            setEditTaskId(null);
+            props.setEditTaskVisible(false);
+            props.setEditTaskId(null);
           }}
           onSave={async (updates) => {
-            await handleUpdateTask(editTaskId, updates);
-            setEditTaskVisible(false);
-            setEditTaskId(null);
+            await props.handleUpdateTask(props.editTaskId, updates);
+            props.setEditTaskVisible(false);
+            props.setEditTaskId(null);
           }}
         />
       )}

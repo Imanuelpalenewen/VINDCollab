@@ -307,7 +307,7 @@ IMPORTANT:
     let errBody = "";
 
     // Fallback model cascade
-    const allowedModels = ["gemini-2.0-flash", "gemini-2.0-flash-lite"];
+    const allowedModels = ["gemini-2.5 flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
 
     for (const model of allowedModels) {
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -376,7 +376,7 @@ IMPORTANT:
     taskCount: fallbackTasks.length,
     fromCache: false,
     generatedAt: Date.now(),
-    message: "⚠️ AI Quota exceeded. Tasks dibuat dari template lokal.",
+    message: "AI Quota exceeded. Tasks dibuat dari template lokal.",
   };
 }
 

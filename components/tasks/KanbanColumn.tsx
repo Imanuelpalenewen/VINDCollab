@@ -10,6 +10,7 @@ import {
   View
 } from "react-native";
 import { KanbanTaskCard } from "./KanbanTaskCard";
+import { useDragContext } from "./DragContext";
 
 interface Task {
   _id: string;
@@ -47,6 +48,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
 }) => {
   const config = statusConfig[status];
   const isAddVisible = status === "TODO" && onAddTask;
+  const { isDraggingTask } = useDragContext();
 
   return (
     <View style={styles.container}>
@@ -91,6 +93,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={true}
           scrollIndicatorInsets={{ right: -4 }}
+          scrollEnabled={!isDraggingTask}
         >
           {tasks.map((item) => (
             <KanbanTaskCard

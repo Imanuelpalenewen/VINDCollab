@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useDragContext } from "./DragContext";
 
 interface Task {
   _id: string;
@@ -53,6 +54,9 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   const [isLongPressDraggable, setIsLongPressDraggable] = useState(false);
   const [isLongPressActive, setIsLongPressActive] = useState(false);
 
+  // Global drag context
+  const { setIsDraggingTask } = useDragContext();
+
   // Long press tracking
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasDraggedRef = useRef(false);
@@ -93,6 +97,7 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
         if (isLongPressDraggable) {
           hasDraggedRef.current = true;
           setIsDragging(true);
+          setIsDraggingTask(true); // Notify global context
         }
       },
       onPanResponderMove: (evt, { dx, dy }) => {
@@ -113,6 +118,7 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
         }
 
         setIsDragging(false);
+        setIsDraggingTask(false); // Reset global context
         setIsLongPressDraggable(false);
         setIsLongPressActive(false);
         hasDraggedRef.current = false;
