@@ -56,6 +56,7 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   // Long press tracking
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasDraggedRef = useRef(false);
+  const panResponder = useRef<PanResponder | null>(null);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -211,7 +212,7 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
           opacity: isDragging ? 0.7 : 1,
         },
       ]}
-      {...(isLongPressDraggable ? panResponder.panHandlers : {})}
+      {...(isLongPressDraggable && panResponder.current ? panResponder.current.panHandlers : {})}
     >
       <TouchableOpacity
         style={[
