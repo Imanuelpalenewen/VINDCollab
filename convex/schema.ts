@@ -58,7 +58,18 @@ export default defineSchema({
     dueDate: v.optional(v.number()),
     isAiGenerated: v.boolean(),
     phase: v.optional(v.string()),
+    priority: v.optional(v.union(v.literal("HIGH"), v.literal("MED"), v.literal("LOW"))),
+    isCritical: v.optional(v.boolean()),
+    parentTaskId: v.optional(v.id("tasks")),
+    order: v.optional(v.number()),
+    aiRationale: v.optional(v.string()),
   }).index("by_event", ["eventId"]).index("by_status", ["status"]),
+
+  taskDependencies: defineTable({
+    taskId: v.id("tasks"),
+    dependsOnTaskId: v.id("tasks"),
+    dependencyType: v.union(v.literal("FINISH_TO_START"), v.literal("START_TO_START")),
+  }).index("by_task", ["taskId"]).index("by_depends_on", ["dependsOnTaskId"]),
 
   chatRooms: defineTable({
     eventId: v.id("events"),

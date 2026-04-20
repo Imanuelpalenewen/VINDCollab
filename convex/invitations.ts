@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 import { paginationOptsValidator } from "convex/server";
+import { internal } from "./_generated/api";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -287,6 +288,11 @@ export const respondToInvitation = mutation({
       name: `partnership-${invitation.senderOrgId}-${invitation.recipientOrgId}`,
       type: "EVENT",
       createdBy: userId,
+    });
+
+    // Trigger AI Task Breakdown generation
+    await ctx.scheduler.runAfter(0, internal.ai.taskBreakdown.generateTaskBreakdown, {
+      eventId: invitation.eventId,
     });
 
     return partnership;

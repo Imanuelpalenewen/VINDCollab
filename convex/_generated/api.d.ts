@@ -9,12 +9,15 @@
  */
 
 import type * as ai_partnerRecommender from "../ai/partnerRecommender.js";
+import type * as ai_taskBreakdown from "../ai/taskBreakdown.js";
 import type * as auth from "../auth.js";
 import type * as events from "../events.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
 import type * as organizations from "../organizations.js";
+import type * as partnerships from "../partnerships.js";
 import type * as seed from "../seed.js";
+import type * as tasks from "../tasks.js";
 import type * as users from "../users.js";
 
 import type {
@@ -25,12 +28,15 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "ai/partnerRecommender": typeof ai_partnerRecommender;
+  "ai/taskBreakdown": typeof ai_taskBreakdown;
   auth: typeof auth;
   events: typeof events;
   http: typeof http;
   invitations: typeof invitations;
   organizations: typeof organizations;
+  partnerships: typeof partnerships;
   seed: typeof seed;
+  tasks: typeof tasks;
   users: typeof users;
 }>;
 

@@ -194,11 +194,22 @@ export default function EventDetailScreen() {
           <View style={s.tabPlaceholderIcon}>
             <Ionicons name="checkmark-circle-outline" size={32} color="#C4B5FD" />
           </View>
-          <Text style={s.tabPlaceholderTitle}>No tasks yet</Text>
+          <Text style={s.tabPlaceholderTitle}>Tasks</Text>
           <Text style={s.tabPlaceholderText}>
-            AI Task Breakdown will generate a full work breakdown structure once you have accepted partners.
-            Available in Session 6.
+            {canFindPartners
+              ? "Generate AI Task Breakdown using your accepted partners as a starting point."
+              : "Accept partners first to generate AI tasks."}
           </Text>
+          {canFindPartners && (
+            <TouchableOpacity
+              style={s.aiBtn}
+              onPress={() => router.push(`/events/task-review?eventId=${id}`)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="sparkles" size={16} color="#fff" />
+              <Text style={s.aiBtnText}>Generate AI Tasks</Text>
+            </TouchableOpacity>
+          )}
         </View>
       );
     }
