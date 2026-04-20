@@ -70,15 +70,18 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   // Update panResponder when drag states change
   useEffect(() => {
     const newPanResponder = PanResponder.create({
-      onStartShouldSetPanResponder: (evt, { dx, dy }) => {
-        // Only claim if long press is active
-        return isLongPressDraggable;
+      onStartShouldSetPanResponder: () => {
+        // Always try to set responder so parent doesn't intercept
+        return true;
       },
       onMoveShouldSetPanResponder: (evt, { dx, dy }) => {
-        // More aggressive: claim if we have movement after long press
-        if (!isLongPressDraggable) return false;
-        // Claim if moving more than small threshold
-        const hasMoved = Math.abs(dx) > 5 || Math.abs(dy) > 5;
+        // Only allow move if long press is active and there's movement
+        if (!isLongPressDraggable) {
+          // Return false so parent can handle the scroll
+          return false;
+        }
+        // Claim if moving
+        const hasMoved = Math.abs(dx) > 3 || Math.abs(dy) > 3;
         return hasMoved;
       },
       onShouldBlockNativeResponder: () => {
@@ -86,13 +89,29 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
         return isDragging;
       },
       onPanResponderGrant: () => {
-        hasDraggedRef.current = true;
-        setIsDragging(true);
+        // Only start drag if long press is active
+        if (isLongPressDraggable) {
+          hasDraggedRef.current = true;
+          setIsDragging(true);
+        }
       },
-      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
-        useNativeDriver: false,
-      }),
+      onPanResponderMove: (evt, { dx, dy }) => {
+        // Only animate if actually dragging
+        if (isDragging && isLongPressDraggable) {
+          pan.x.setValue(dx);
+          pan.y.setValue(dy);
+        }
+      },
       onPanResponderRelease: async (evt, { dx, dy }) => {
+        if (!isDragging) {
+          // Not dragging, just reset
+          Animated.spring(pan, {
+            toValue: { x: 0, y: 0 },
+            useNativeDriver: false,
+          }).start();
+          return;
+        }
+
         setIsDragging(false);
         setIsLongPressDraggable(false);
         setIsLongPressActive(false);
@@ -212,7 +231,7 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
           opacity: isDragging ? 0.7 : 1,
         },
       ]}
-      {...(isLongPressDraggable && panResponder.current ? panResponder.current.panHandlers : {})}
+      {...(panResponder.current ? panResponder.current.panHandlers : {})}
     >
       <TouchableOpacity
         style={[
