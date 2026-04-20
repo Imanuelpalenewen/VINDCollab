@@ -58,9 +58,9 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   const { setIsDraggingTask } = useDragContext();
 
   // Long press tracking
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasDraggedRef = useRef(false);
-  const panResponder = useRef<PanResponder | null>(null);
+  const panResponder = useRef<ReturnType<typeof PanResponder.create> | null>(null);
 
   // Cleanup timer on unmount
   useEffect(() => {

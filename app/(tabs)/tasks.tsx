@@ -1,14 +1,14 @@
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
+import { DragProvider, useDragContext } from "@/components/tasks/DragContext";
 import { KanbanColumn } from "@/components/tasks/KanbanColumn";
 import { TaskDetailBottomSheet } from "@/components/tasks/TaskDetailBottomSheet";
-import { DragProvider, useDragContext } from "@/components/tasks/DragContext";
 import TaskEditModal from "@/components/tasks/TaskEditModal";
 import { Colors } from "@/constants/Colors";
 import { api } from "@/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
-import React, { useCallback, useState, useEffect } from "react";
+import { useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -218,7 +218,7 @@ interface TasksScreenContentProps {
   setSelectedTaskId: (id: string | null) => void;
   kanbanData: any;
   partnerships: any;
-  selectedEvent: Event | null;
+  selectedEvent: Event | null | undefined;
   allTasks: any[];
   selectedTask: any;
   partnerOrgs: any[];
