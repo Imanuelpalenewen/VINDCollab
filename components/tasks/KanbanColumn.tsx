@@ -88,14 +88,11 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           <Text style={styles.emptyText}>No tasks</Text>
         </View>
       ) : (
-        <ScrollView
-          style={styles.listScroll}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={true}
-          scrollIndicatorInsets={{ right: -4 }}
+        <FlatList
+          data={tasks}
+          keyExtractor={(item) => item._id}
           scrollEnabled={!isDraggingTask}
-        >
-          {tasks.map((item) => (
+          renderItem={({ item }) => (
             <KanbanTaskCard
               key={item._id}
               task={item}
@@ -108,8 +105,11 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                 onTaskPress(item);
               }}
             />
-          ))}
-        </ScrollView>
+          )}
+          contentContainerStyle={styles.listContent}
+          scrollIndicatorInsets={{ right: -4 }}
+          nestedScrollEnabled={false}
+        />
       )}
     </View>
   );
