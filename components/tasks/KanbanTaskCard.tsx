@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/Badge";
 import { Colors } from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -38,6 +38,8 @@ const statusOrder: Record<string, number> = {
   DONE: 2,
 };
 
+const LONG_PRESS_DURATION = 500; // milliseconds
+
 export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   task,
   onPress,
@@ -48,19 +50,71 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   const pan = useRef(new Animated.ValueXY()).current;
   const [loading, setLoading] = React.useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isLongPressDraggable, setIsLongPressDraggable] = useState(false);
+  const [isLongPressActive, setIsLongPressActive] = useState(false);
+
+  // Long press tracking
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasDraggedRef = useRef(false);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handlePressIn = () => {
+    hasDraggedRef.current = false;
+    setIsLongPressActive(false);
+
+    // Start long press timer
+    longPressTimerRef.current = setTimeout(() => {
+      setIsLongPressDraggable(true);
+      setIsLongPressActive(true);
+    }, LONG_PRESS_DURATION);
+  };
+
+  const handlePressOut = () => {
+    // Cancel timer if user released before long press
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    // Only reset if we haven't started dragging
+    if (!hasDraggedRef.current) {
+      setIsLongPressDraggable(false);
+      setIsLongPressActive(false);
+    }
+  };
+
+  const handlePress = () => {
+    // Only trigger onPress if we didn't drag
+    if (!hasDraggedRef.current) {
+      onPress();
+    }
+  };
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (evt, { dx, dy }) => Math.abs(dx) > 10 || Math.abs(dy) > 10,
+      onStartShouldSetPanResponder: () => isLongPressDraggable,
+      onMoveShouldSetPanResponder: (evt, { dx, dy }) =>
+        isLongPressDraggable && (Math.abs(dx) > 10 || Math.abs(dy) > 10),
+      onPanResponderGrant: () => {
+        hasDraggedRef.current = true;
+        setIsDragging(true);
+      },
       onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
         useNativeDriver: false,
       }),
-      onPanResponderGrant: () => {
-        setIsDragging(true);
-      },
       onPanResponderRelease: async (evt, { dx, dy }) => {
         setIsDragging(false);
+        setIsLongPressDraggable(false);
+        setIsLongPressActive(false);
+        hasDraggedRef.current = false;
 
         const threshold = 50;
         const currentStatusIndex = statusOrder[task.status];
@@ -142,16 +196,18 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
           opacity: isDragging ? 0.7 : 1,
         },
       ]}
-      {...panResponder.panHandlers}
+      {...(isLongPressDraggable ? panResponder.panHandlers : {})}
     >
       <TouchableOpacity
         style={[
           styles.card,
           isOverdue ? styles.cardOverdue : undefined,
           isDragging ? styles.cardDragging : undefined,
+          isLongPressActive ? styles.cardLongPressed : undefined,
         ]}
-        onPress={onPress}
-        onLongPress={onLongPress}
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
         activeOpacity={0.7}
         disabled={loading}
       >
@@ -211,11 +267,19 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
           )}
         </View>
 
-        {/* Swipe hint */}
+        {/* Swipe hint - shows different message based on state */}
         <Text style={styles.swipeHint}>
-          {statusOrder[task.status] > 0 ? "← " : ""}
-          {isDragging ? "Drag" : "Swipe"}
-          {statusOrder[task.status] < 2 ? " →" : ""}
+          {isLongPressActive ? (
+            <>
+              🎯 Drag now
+            </>
+          ) : (
+            <>
+              {statusOrder[task.status] > 0 ? "← " : ""}
+              Tap / Swipe
+              {statusOrder[task.status] < 2 ? " →" : ""}
+            </>
+          )}
         </Text>
       </TouchableOpacity>
     </Animated.View>
@@ -249,6 +313,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  cardLongPressed: {
+    borderColor: Colors.PRIMARY,
+    borderWidth: 1.5,
+    backgroundColor: "rgba(59, 130, 246, 0.05)",
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
