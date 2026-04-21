@@ -213,8 +213,20 @@ export const updateTask = mutation({
     const task = await ctx.db.get(args.taskId);
     if (!task) throw new Error("Task not found");
 
-    // Verify caller is event host
-    await assertEventHost(ctx, task.eventId);
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const user = await ctx.db.get(userId);
+    if (!user?.orgId) throw new Error("No organization found");
+
+    const event = await ctx.db.get(task.eventId);
+    if (!event) throw new Error("Event not found");
+
+    const isHost = event.hostOrgId === user.orgId;
+    const isAssigned = task.assignedOrgId === user.orgId;
+
+    if (!isHost && !isAssigned) {
+      throw new Error("Not authorized to edit this task");
+    }
 
     const updates: Record<string, any> = {};
     if (args.title !== undefined) updates.title = args.title;
@@ -376,9 +388,10 @@ export const moveTask = mutation({
 
     // Allow host and partners to move tasks
     const isHost = event.hostOrgId === user.orgId;
-    if (!isHost) {
-      // Check if user is a partner (simplified check - just verify they're authorized)
-      // In production, would check partnerships table explicitly
+    const isAssigned = task.assignedOrgId === user.orgId;
+
+    if (!isHost && !isAssigned) {
+      throw new Error("Not authorized to move this task");
     }
 
     await ctx.db.patch(args.taskId, { status: args.newStatus });

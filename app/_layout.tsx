@@ -4,6 +4,7 @@ import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import * as SecureStore from "expo-secure-store";
 import { useAuth } from "@/hooks/useAuth";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
   unsavedChangesWarning: false,
@@ -58,22 +59,24 @@ function AuthGuard() {
  */
 export default function RootLayout() {
   return (
-    <ConvexAuthProvider client={convex} storage={secureStorage}>
-      <AuthGuard />
-      <Stack screenOptions={{ headerShown: false, animation: "fade" }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="org-profile" options={{ headerShown: false, animation: "slide_from_right" }} />
-        <Stack.Screen name="events/create" options={{ headerShown: false, animation: "slide_from_bottom" }} />
-        <Stack.Screen name="events/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
-        <Stack.Screen name="events/partners" options={{ headerShown: false, animation: "slide_from_right" }} />
-        <Stack.Screen name="invitations/send" options={{ headerShown: false, animation: "slide_from_bottom" }} />
-        <Stack.Screen name="invitations/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
-        <Stack.Screen name="invitations/counter-propose" options={{ headerShown: false, animation: "slide_from_bottom" }} />
-        <Stack.Screen name="invitations/inbox" options={{ headerShown: false, animation: "slide_from_right" }} />
-      </Stack>
-    </ConvexAuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ConvexAuthProvider client={convex} storage={secureStorage}>
+        <AuthGuard />
+        <Stack screenOptions={{ headerShown: false, animation: "fade" }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="org-profile" options={{ headerShown: false, animation: "slide_from_right" }} />
+          <Stack.Screen name="events/create" options={{ headerShown: false, animation: "slide_from_bottom" }} />
+          <Stack.Screen name="events/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
+          <Stack.Screen name="events/partners" options={{ headerShown: false, animation: "slide_from_right" }} />
+          <Stack.Screen name="invitations/send" options={{ headerShown: false, animation: "slide_from_bottom" }} />
+          <Stack.Screen name="invitations/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
+          <Stack.Screen name="invitations/counter-propose" options={{ headerShown: false, animation: "slide_from_bottom" }} />
+          <Stack.Screen name="invitations/inbox" options={{ headerShown: false, animation: "slide_from_right" }} />
+        </Stack>
+      </ConvexAuthProvider>
+    </GestureHandlerRootView>
   );
 }
 

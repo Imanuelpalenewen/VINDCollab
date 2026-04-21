@@ -20,6 +20,7 @@ interface Task {
   status: "TODO" | "IN_PROGRESS" | "DONE";
   priority?: "HIGH" | "MED" | "LOW";
   assignedOrgName?: string;
+  assignedOrgId?: string;
   dueDate?: number;
   estimatedHours?: number;
   phase?: string;
@@ -34,6 +35,8 @@ interface TaskDetailBottomSheetProps {
   onStatusChange: (taskId: string, newStatus: "TODO" | "IN_PROGRESS" | "DONE") => Promise<void>;
   onDelete: (taskId: string) => Promise<void>;
   onEdit: () => void;
+  isHost: boolean;
+  myOrgId?: string;
 }
 
 export const TaskDetailBottomSheet: React.FC<TaskDetailBottomSheetProps> = ({
@@ -43,6 +46,8 @@ export const TaskDetailBottomSheet: React.FC<TaskDetailBottomSheetProps> = ({
   onStatusChange,
   onDelete,
   onEdit,
+  isHost,
+  myOrgId,
 }) => {
   const [loadingStatus, setLoadingStatus] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -260,29 +265,33 @@ export const TaskDetailBottomSheet: React.FC<TaskDetailBottomSheetProps> = ({
 
           {/* Action Buttons */}
           <View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.editButton]}
-              onPress={onEdit}
-              disabled={deleting}
-            >
-              <Ionicons name="pencil" size={18} color={Colors.PRIMARY} />
-              <Text style={styles.editButtonText}>Edit</Text>
-            </TouchableOpacity>
+            {(isHost || task.assignedOrgId === myOrgId) && (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.editButton]}
+                onPress={onEdit}
+                disabled={deleting}
+              >
+                <Ionicons name="pencil" size={18} color={Colors.PRIMARY} />
+                <Text style={styles.editButtonText}>Edit</Text>
+              </TouchableOpacity>
+            )}
 
-            <TouchableOpacity
-              style={[styles.actionButton, styles.deleteButton]}
-              onPress={handleDelete}
-              disabled={deleting}
-            >
-              {deleting ? (
-                <ActivityIndicator size="small" color={Colors.ERROR} />
-              ) : (
-                <>
-                  <Ionicons name="trash" size={18} color={Colors.ERROR} />
-                  <Text style={styles.deleteButtonText}>Delete</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            {isHost && (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.deleteButton]}
+                onPress={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <ActivityIndicator size="small" color={Colors.ERROR} />
+                ) : (
+                  <>
+                    <Ionicons name="trash" size={18} color={Colors.ERROR} />
+                    <Text style={styles.deleteButtonText}>Delete</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>

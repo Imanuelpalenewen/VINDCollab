@@ -5,13 +5,18 @@ import React, { useRef, useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Animated,
-  PanResponder,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  runOnJS,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useDragContext } from "./DragContext";
 
 interface Task {
@@ -19,6 +24,7 @@ interface Task {
   title: string;
   priority?: "HIGH" | "MED" | "LOW";
   assignedOrgName?: string;
+  assignedOrgId?: string;
   dueDate?: number;
   estimatedHours?: number;
   isCritical?: boolean;
@@ -27,10 +33,14 @@ interface Task {
 
 interface KanbanTaskCardProps {
   task: Task;
+  taskIndex: number;
+  totalTasks: number;
   onPress: () => void;
   onStatusChange: (newStatus: "TODO" | "IN_PROGRESS" | "DONE") => Promise<void>;
+  onReorder?: (newIndex: number) => void;
   onLongPress?: () => void;
   columnStatus: "TODO" | "IN_PROGRESS" | "DONE";
+  canInteract: boolean;
 }
 
 const statusOrder: Record<string, number> = {
@@ -39,291 +49,287 @@ const statusOrder: Record<string, number> = {
   DONE: 2,
 };
 
-const LONG_PRESS_DURATION = 500; // milliseconds
+const LONG_PRESS_DURATION = 500;
+const SWIPE_THRESHOLD = 50;
+const SWIPE_Y_MAX = 50;
+const CARD_HEIGHT = 120;
+const EDGE_ZONE = 80;
+const AUTO_SCROLL_SPEED = 8;
 
 export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   task,
+  taskIndex,
+  totalTasks,
   onPress,
   onStatusChange,
+  onReorder,
   onLongPress,
   columnStatus,
+  canInteract,
 }) => {
-  const pan = useRef(new Animated.ValueXY()).current;
-  const [loading, setLoading] = React.useState(false);
+  const offsetX = useSharedValue(0);
+  const offsetY = useSharedValue(0);
+  const scale = useSharedValue(1);
+
+  const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [isLongPressDraggable, setIsLongPressDraggable] = useState(false);
   const [isLongPressActive, setIsLongPressActive] = useState(false);
 
-  // Global drag context
-  const { setIsDraggingTask } = useDragContext();
+  const dragContextRef = useRef<ReturnType<typeof useDragContext> | null>(null);
+  const autoScrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scrollOffsetRef = useRef(0);
 
-  // Long press tracking
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasDraggedRef = useRef(false);
-  const panResponder = useRef<ReturnType<typeof PanResponder.create> | null>(null);
+  const dragContext = useDragContext();
+  dragContextRef.current = dragContext;
 
-  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-      }
+      if (autoScrollIntervalRef.current) clearInterval(autoScrollIntervalRef.current);
     };
   }, []);
 
-  // Update panResponder when drag states change
-  useEffect(() => {
-    const newPanResponder = PanResponder.create({
-      onStartShouldSetPanResponder: () => {
-        // Always try to set responder so parent doesn't intercept
-        return true;
-      },
-      onMoveShouldSetPanResponder: (evt, { dx, dy }) => {
-        // Only allow move if long press is active and there's movement
-        if (!isLongPressDraggable) {
-          // Return false so parent can handle the scroll
-          return false;
-        }
-        // Claim if moving
-        const hasMoved = Math.abs(dx) > 3 || Math.abs(dy) > 3;
-        return hasMoved;
-      },
-      onShouldBlockNativeResponder: () => {
-        // Block parent ScrollView from responding when we're dragging
-        return isDragging;
-      },
-      onPanResponderGrant: () => {
-        // Only start drag if long press is active
-        if (isLongPressDraggable) {
-          hasDraggedRef.current = true;
-          setIsDragging(true);
-          setIsDraggingTask(true); // Notify global context
-        }
-      },
-      onPanResponderMove: (evt, { dx, dy }) => {
-        // Only animate if actually dragging
-        if (isDragging && isLongPressDraggable) {
-          pan.x.setValue(dx);
-          pan.y.setValue(dy);
-        }
-      },
-      onPanResponderRelease: async (evt, { dx, dy }) => {
-        if (!isDragging) {
-          // Not dragging, just reset
-          Animated.spring(pan, {
-            toValue: { x: 0, y: 0 },
-            useNativeDriver: false,
-          }).start();
-          return;
-        }
+  const stopAutoScroll = () => {
+    if (autoScrollIntervalRef.current) {
+      clearInterval(autoScrollIntervalRef.current);
+      autoScrollIntervalRef.current = null;
+    }
+    dragContextRef.current?.setAutoScrollState({ scrolling: false, direction: null });
+  };
 
-        setIsDragging(false);
-        setIsDraggingTask(false); // Reset global context
-        setIsLongPressDraggable(false);
-        setIsLongPressActive(false);
-        hasDraggedRef.current = false;
+  const checkAndTriggerAutoScroll = (translationY: number) => {
+    if (!dragContextRef.current) return;
+    const { columnRefs, setAutoScrollState } = dragContextRef.current;
+    const columnRef = columnRefs.get(columnStatus);
+    if (!columnRef?.current) return;
 
-        const threshold = 50;
-        const currentStatusIndex = statusOrder[task.status];
+    (columnRef.current as any)?.measure?.(
+      (_x: number, _y: number, _w: number, height: number) => {
+        const relY = translationY + height / 2;
 
-        // Horizontal swipe - move between statuses
-        if (Math.abs(dx) > threshold && Math.abs(dy) < 30) {
-          if (dx > threshold && currentStatusIndex > 0) {
-            // Swipe right → move to previous status
-            const statuses: Array<"TODO" | "IN_PROGRESS" | "DONE"> = [
-              "TODO",
-              "IN_PROGRESS",
-              "DONE",
-            ];
-            const newStatus = statuses[currentStatusIndex - 1];
-            try {
-              setLoading(true);
-              await onStatusChange(newStatus);
-            } catch (error) {
-              Alert.alert("Error", "Failed to move task");
-            } finally {
-              setLoading(false);
-            }
-          } else if (dx < -threshold && currentStatusIndex < 2) {
-            // Swipe left → move to next status
-            const statuses: Array<"TODO" | "IN_PROGRESS" | "DONE"> = [
-              "TODO",
-              "IN_PROGRESS",
-              "DONE",
-            ];
-            const newStatus = statuses[currentStatusIndex + 1];
-            try {
-              setLoading(true);
-              await onStatusChange(newStatus);
-            } catch (error) {
-              Alert.alert("Error", "Failed to move task");
-            } finally {
-              setLoading(false);
-            }
+        if (relY < EDGE_ZONE) {
+          setAutoScrollState({ scrolling: true, direction: "up" });
+          if (!autoScrollIntervalRef.current) {
+            autoScrollIntervalRef.current = setInterval(() => {
+              scrollOffsetRef.current = Math.max(0, scrollOffsetRef.current - AUTO_SCROLL_SPEED);
+              columnRef.current?.scrollToOffset({
+                offset: scrollOffsetRef.current,
+                animated: false,
+              });
+            }, 16);
           }
+        } else if (relY > height - EDGE_ZONE) {
+          setAutoScrollState({ scrolling: true, direction: "down" });
+          if (!autoScrollIntervalRef.current) {
+            autoScrollIntervalRef.current = setInterval(() => {
+              scrollOffsetRef.current += AUTO_SCROLL_SPEED;
+              columnRef.current?.scrollToOffset({
+                offset: scrollOffsetRef.current,
+                animated: false,
+              });
+            }, 16);
+          }
+        } else {
+          stopAutoScroll();
         }
+      }
+    );
+  };
 
-        Animated.spring(pan, {
-          toValue: { x: 0, y: 0 },
-          useNativeDriver: false,
-        }).start();
-      },
+  const handleDragStart = () => {
+    setIsDragging(true);
+    setIsLongPressActive(true);
+    dragContext.setIsDraggingTask(true);
+    dragContext.setDraggedTaskId(task._id);
+    dragContext.setDragTranslationY(0);
+  };
+
+  const handleDragUpdate = (translationY: number) => {
+    dragContext.setDragTranslationY(translationY);
+    checkAndTriggerAutoScroll(translationY);
+  };
+
+  const handleDragEnd = async (translationX: number, translationY: number) => {
+    if (!canInteract) return;
+    const isHorizontalSwipe =
+      Math.abs(translationX) > SWIPE_THRESHOLD &&
+      Math.abs(translationY) < SWIPE_Y_MAX;
+
+    if (isHorizontalSwipe) {
+      // ── Change status column ─────────────────────────────────────────────
+      const currentStatusIndex = statusOrder[task.status];
+      const statuses: ("TODO" | "IN_PROGRESS" | "DONE")[] = [
+        "TODO",
+        "IN_PROGRESS",
+        "DONE",
+      ];
+
+      let newStatus: "TODO" | "IN_PROGRESS" | "DONE" | null = null;
+      if (translationX > SWIPE_THRESHOLD && currentStatusIndex > 0) {
+        newStatus = statuses[currentStatusIndex - 1];
+      } else if (translationX < -SWIPE_THRESHOLD && currentStatusIndex < 2) {
+        newStatus = statuses[currentStatusIndex + 1];
+      }
+
+      if (newStatus) {
+        try {
+          setLoading(true);
+          await onStatusChange(newStatus);
+        } catch (_) {
+          Alert.alert("Error", "Failed to move task");
+        } finally {
+          setLoading(false);
+        }
+      }
+    } else if (Math.abs(translationY) > 20 && onReorder) {
+      // ── Reorder within column ────────────────────────────────────────────
+      const delta = Math.round(translationY / CARD_HEIGHT);
+      if (delta !== 0) {
+        const newIndex = Math.max(0, Math.min(totalTasks - 1, taskIndex + delta));
+        if (newIndex !== taskIndex) {
+          onReorder(newIndex);
+        }
+      }
+    }
+  };
+
+  const handleDragCleanup = () => {
+    stopAutoScroll();
+    setIsDragging(false);
+    setIsLongPressActive(false);
+    dragContext.setIsDraggingTask(false);
+    dragContext.setDraggedTaskId(null);
+    dragContext.setDragTranslationY(0);
+  };
+
+  /**
+   * KEY FIX — scroll conflict:
+   *
+   * .activateAfterLongPress(ms) has an important behaviour:
+   *   - Finger moves before timer expires  → gesture FAILS automatically
+   *                                          → FlatList receives touch → scrolls normally ✓
+   *   - Finger stays still for `ms`        → gesture ACTIVATES → onStart fires → drag works ✓
+   *
+   * No separate LongPress gesture or isActivated shared value needed.
+   * This is the correct RNGH v2 pattern for drag-inside-scroll.
+   */
+  const panGesture = Gesture.Pan()
+    .activateAfterLongPress(LONG_PRESS_DURATION)
+    .enabled(canInteract)
+    .onStart(() => {
+      // Fires only after long press threshold — card is now "grabbed"
+      scale.value = withSpring(1.05, { damping: 10, mass: 0.5 });
+      runOnJS(handleDragStart)();
+    })
+    .onUpdate(({ translationX, translationY }) => {
+      offsetX.value = translationX;
+      offsetY.value = translationY;
+      runOnJS(handleDragUpdate)(translationY);
+    })
+    .onEnd(({ translationX, translationY }) => {
+      runOnJS(handleDragEnd)(translationX, translationY);
+    })
+    .onFinalize(() => {
+      // Runs after onEnd AND when gesture is cancelled / finger moved before long press
+      // Safe to always reset here
+      offsetX.value = withSpring(0, { damping: 12, mass: 0.5 });
+      offsetY.value = withSpring(0, { damping: 12, mass: 0.5 });
+      scale.value = withSpring(1, { damping: 12, mass: 0.5 });
+      runOnJS(handleDragCleanup)();
     });
 
-    panResponder.current = newPanResponder;
-  }, [isLongPressDraggable, isDragging]);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: offsetX.value },
+      { translateY: offsetY.value },
+      { scale: scale.value },
+    ],
+  }));
 
-  const handlePressIn = () => {
-    hasDraggedRef.current = false;
-    setIsLongPressActive(false);
+  const isOverdue = task.dueDate ? task.dueDate < Date.now() : false;
 
-    // Start long press timer
-    longPressTimerRef.current = setTimeout(() => {
-      setIsLongPressDraggable(true);
-      setIsLongPressActive(true);
-    }, LONG_PRESS_DURATION);
-  };
-
-  const handlePressOut = () => {
-    // Cancel timer if user released before long press
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-
-    // Only reset if we haven't started dragging
-    if (!hasDraggedRef.current) {
-      setIsLongPressDraggable(false);
-      setIsLongPressActive(false);
-    }
-  };
-
-  const handlePress = () => {
-    // Only trigger onPress if we didn't drag
-    if (!hasDraggedRef.current) {
-      onPress();
-    }
-  };
-
-  const getPriorityColor = (priority?: string): string => {
-    switch (priority) {
-      case "HIGH":
-        return Colors.ERROR;
-      case "MED":
-        return Colors.WARNING;
-      case "LOW":
-        return Colors.SUCCESS;
-      default:
-        return Colors.TEXT_MUTED;
-    }
-  };
-
-  const isOverdue =
-    task.dueDate &&
-    task.dueDate < new Date().getTime() &&
-    task.status !== "DONE";
-
-  const formatDate = (ms: number) => {
-    const date = new Date(ms);
-    return `${date.getMonth() + 1}/${date.getDate()}`;
-  };
+  const formatDate = (timestamp: number) =>
+    new Date(timestamp).toLocaleDateString("id-ID", {
+      month: "short",
+      day: "numeric",
+    });
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        {
-          transform: [{ translateX: pan.x }, { translateY: pan.y }],
-          opacity: isDragging ? 0.7 : 1,
-        },
-      ]}
-      {...(panResponder.current ? panResponder.current.panHandlers : {})}
-    >
-      <TouchableOpacity
+    <GestureDetector gesture={panGesture}>
+      <Animated.View
         style={[
-          styles.card,
-          isOverdue ? styles.cardOverdue : undefined,
-          isDragging ? styles.cardDragging : undefined,
-          isLongPressActive ? styles.cardLongPressed : undefined,
+          styles.container,
+          animatedStyle,
+          isDragging && styles.containerDragging,
         ]}
-        onPress={handlePress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={0.7}
-        disabled={loading}
       >
-        {loading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="small" color={Colors.PRIMARY} />
-          </View>
-        )}
+        <TouchableOpacity
+          style={[
+            styles.card,
+            isOverdue && styles.cardOverdue,
+            isDragging && styles.cardDragging,
+            isLongPressActive && !isDragging && styles.cardLongPressed,
+          ]}
+          onPress={onPress}
+          activeOpacity={0.7}
+          disabled={loading || isDragging}
+        >
+          {loading && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="small" color={Colors.PRIMARY} />
+            </View>
+          )}
 
-        {/* Title */}
-        <Text style={styles.title} numberOfLines={2}>
-          {task.title}
-        </Text>
+          <Text style={styles.title} numberOfLines={2}>
+            {task.title}
+          </Text>
 
-        {/* Meta row: Priority + Critical indicator */}
-        <View style={styles.metaRow}>
-          {task.priority && (
-            <Badge
-              variant={
-                task.priority === "HIGH"
-                  ? "red"
-                  : task.priority === "MED"
+          <View style={styles.metaRow}>
+            {task.priority && (
+              <Badge
+                variant={
+                  task.priority === "HIGH"
+                    ? "red"
+                    : task.priority === "MED"
                     ? "amber"
                     : "green"
-              }
-              label={task.priority}
-            />
-          )}
-          {task.isCritical && (
-            <Ionicons name="flash" size={14} color={Colors.WARNING} />
-          )}
-        </View>
+                }
+                label={task.priority}
+              />
+            )}
+            {task.isCritical && (
+              <Ionicons name="flash" size={14} color={Colors.WARNING} />
+            )}
+          </View>
 
-        {/* Assigned org */}
-        {task.assignedOrgName && (
-          <Text style={styles.orgName} numberOfLines={1}>
-            👤 {task.assignedOrgName}
+          {task.assignedOrgName && (
+            <Text style={styles.orgName} numberOfLines={1}>
+              👤 {task.assignedOrgName}
+            </Text>
+          )}
+
+          <View style={styles.footer}>
+            {task.dueDate && (
+              <Text
+                style={[styles.footerText, isOverdue && styles.overdueText]}
+              >
+                📅 {formatDate(task.dueDate)}
+              </Text>
+            )}
+            {task.estimatedHours && (
+              <Text style={styles.footerText}>⏱️ {task.estimatedHours}h</Text>
+            )}
+          </View>
+
+          <Text style={styles.swipeHint}>
+            {isDragging
+              ? "🎯 Drop to reorder"
+              : isLongPressActive
+              ? "🎯 Drag now"
+              : `${statusOrder[task.status] > 0 ? "← " : ""}Hold & Drag${statusOrder[task.status] < 2 ? " →" : ""}`}
           </Text>
-        )}
-
-        {/* Due date + estimated hours */}
-        <View style={styles.footer}>
-          {task.dueDate && (
-            <Text
-              style={[
-                styles.footerText,
-                isOverdue ? styles.overdueText : undefined,
-              ]}
-            >
-              📅 {formatDate(task.dueDate)}
-            </Text>
-          )}
-          {task.estimatedHours && (
-            <Text style={styles.footerText}>
-              ⏱️ {task.estimatedHours}h
-            </Text>
-          )}
-        </View>
-
-        {/* Swipe hint - shows different message based on state */}
-        <Text style={styles.swipeHint}>
-          {isLongPressActive ? (
-            <>
-              🎯 Drag now
-            </>
-          ) : (
-            <>
-              {statusOrder[task.status] > 0 ? "← " : ""}
-              Tap / Swipe
-              {statusOrder[task.status] < 2 ? " →" : ""}
-            </>
-          )}
-        </Text>
-      </TouchableOpacity>
-    </Animated.View>
+        </TouchableOpacity>
+      </Animated.View>
+    </GestureDetector>
   );
 };
 
@@ -331,6 +337,10 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: 10,
     width: "100%",
+  },
+  containerDragging: {
+    zIndex: 100,
+    elevation: 10,
   },
   card: {
     backgroundColor: Colors.BG_CARD,

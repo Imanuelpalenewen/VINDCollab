@@ -1,3 +1,4 @@
+
 import { internalAction, internalQuery, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
@@ -285,49 +286,78 @@ IMPORTANT:
 - Return valid JSON only.
 `.trim();
 
-    // ─── 4. Call Gemini Flash 2.0 ─────────────────────────────────────────
-    const apiKey = process.env.GEMINI_API_KEY;
+    // ─── 4. Call Mistral AI ───────────────────────────────────────────────
+    const apiKey = process.env.MISTRAL_API_KEY;
     if (!apiKey) {
       throw new Error(
-        "GEMINI_API_KEY is not set. Add it to Convex Dashboard → Settings → Environment Variables."
+        "MISTRAL_API_KEY is not set. Add it to Convex Dashboard → Settings → Environment Variables."
       );
     }
 
-    const payload = {
-      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.3,
-        maxOutputTokens: 4096,
-      },
+    const mistralPayload = {
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+      max_tokens: 4096,
     };
+
+    const MISTRAL_URL = "https://api.mistral.ai/v1/chat/completions";
+
+    // ── Model Cascade (free tier models, best for agentic AI) ────────────
+    // mistral-small-latest → Best quality on free tier, fast & capable
+    // open-mistral-nemo    → Multilingual 12B, open-weight fallback
+    // open-mistral-7b      → Lightweight last-resort fallback
+    const allowedModels = [
+      "mistral-small-latest",
+      "open-mistral-nemo",
+      "open-mistral-7b",
+    ];
 
     let response: Response | null = null;
     let errBody = "";
+    let activeModel = "";
 
-    // Fallback model cascade
-    const allowedModels = ["gemini-2.5 flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
+    console.log("[TaskBreakdown] 🚀 Starting Mistral AI model cascade...");
 
     for (const model of allowedModels) {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      console.log(`[TaskBreakdown] 🔄 Trying model: ${model}`);
       try {
-        response = await fetch(geminiUrl, {
+        response = await fetch(MISTRAL_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ ...mistralPayload, model }),
         });
 
         if (response.ok) {
+          activeModel = model;
+          console.log(`[TaskBreakdown] ✅ SUCCESS — Active model: ${model}`);
           break;
         }
 
         errBody = await response.text();
-        if (response.status === 429 || errBody.includes("Quota")) {
-          break;
+        console.warn(
+          `[TaskBreakdown] ⚠️  Model [${model}] failed` +
+          ` | HTTP ${response.status}` +
+          ` | ${errBody.slice(0, 200)}`
+        );
+
+        if (response.status === 429 || errBody.includes("rate_limit") || errBody.includes("Rate limit")) {
+          console.warn(`[TaskBreakdown] 🚫 RATE LIMITED on [${model}] — switching to next model...`);
+          response = null;
+          continue;
         }
+        // Non-quota error: stop cascade
+        break;
       } catch (err: any) {
         errBody = err.message;
+        console.warn(`[TaskBreakdown] 🔌 Network error on [${model}]: ${errBody}`);
+        response = null;
       }
     }
 
@@ -335,8 +365,11 @@ IMPORTANT:
       errBody = errBody || "Unknown network error or all models failed.";
       const status = response ? response.status : 500;
 
-      if (status === 429 || errBody.includes("Quota")) {
-        console.warn("Gemini API Quota Exceeded. Falling back to local template.");
+      if (status === 429 || errBody.includes("rate_limit") || response === null) {
+        console.warn(
+          "[TaskBreakdown] 🔴 ALL MISTRAL MODELS RATE LIMITED — falling back to local template." +
+          " Models tried: " + allowedModels.join(" → ")
+        );
         
         const fallbackTasks = event.partners.flatMap((partner: any) => [
           {
@@ -363,29 +396,37 @@ IMPORTANT:
             order: 1,
             aiRationale: `Sesuai capabilities ${partner.capabilities?.join(", ")}`,
           },
-      ]);
+        ]);
 
-  const realTaskIds = await ctx.runMutation(
-    internal.ai.taskBreakdown.insertTasks,
-    { eventId: args.eventId, tasks: fallbackTasks }
-  );
+        const realTaskIds = await ctx.runMutation(
+          internal.ai.taskBreakdown.insertTasks,
+          { eventId: args.eventId, tasks: fallbackTasks }
+        );
 
-  return {
-    taskIds: realTaskIds,
-    phaseCount: 2,
-    taskCount: fallbackTasks.length,
-    fromCache: false,
-    generatedAt: Date.now(),
-    message: "AI Quota exceeded. Tasks dibuat dari template lokal.",
-  };
-}
+        return {
+          taskIds: realTaskIds,
+          phaseCount: 2,
+          taskCount: fallbackTasks.length,
+          fromCache: false,
+          generatedAt: Date.now(),
+          message: "⚠️ Semua model Mistral AI sedang rate limited. Tasks dibuat dari template lokal.",
+        };
+      }
 
-      throw new Error(`Gemini API error ${status}: ${errBody.slice(0, 300)}`);
+      console.error(
+        `[TaskBreakdown] ❌ FATAL — All models failed | Last HTTP status: ${status}` +
+        ` | Models tried: ${allowedModels.join(" → ")}` +
+        ` | Last error: ${errBody.slice(0, 200)}`
+      );
+      throw new Error(`Mistral API error ${status}: ${errBody.slice(0, 300)}`);
     }
 
-    const geminiResult: any = await response.json();
-    const rawText: string =
-      geminiResult?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const mistralResult: any = await response.json();
+    const rawText: string = mistralResult?.choices?.[0]?.message?.content ?? "";
+
+    console.log(`[TaskBreakdown] 📊 Tokens used — prompt: ${mistralResult?.usage?.prompt_tokens ?? "?"},` +
+      ` completion: ${mistralResult?.usage?.completion_tokens ?? "?"},` +
+      ` total: ${mistralResult?.usage?.total_tokens ?? "?"} | model: ${activeModel}`);
 
     // ─── 5. Parse and validate JSON ────────────────────────────────────────
     let parsed: { phases: any[] };
@@ -393,12 +434,12 @@ IMPORTANT:
       parsed = JSON.parse(rawText);
     } catch {
       throw new Error(
-        "Failed to parse Gemini response as JSON. Raw: " + rawText.slice(0, 300)
+        `[TaskBreakdown] Failed to parse Mistral response as JSON (model: ${activeModel}). Raw: ` + rawText.slice(0, 300)
       );
     }
 
     if (!Array.isArray(parsed.phases)) {
-      throw new Error("Gemini returned unexpected shape — missing phases array.");
+      throw new Error(`[TaskBreakdown] Mistral (${activeModel}) returned unexpected shape — missing phases array.`);
     }
 
     // ─── 6. Build task inserts with dependency tracking ──────────────────
@@ -543,3 +584,4 @@ IMPORTANT:
     };
   },
 });
+

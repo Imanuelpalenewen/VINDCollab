@@ -34,7 +34,8 @@ export default function TasksScreen() {
   const { selectedEventId: paramEventId } = useLocalSearchParams<{ selectedEventId: string }>();
 
   // Queries
-  const myEvents = useQuery(api.events.listMyEvents) ?? [];
+  const myEvents = (useQuery(api.events.listMyInvolvedEvents) ?? []).filter(Boolean) as Event[];
+  const myOrg = useQuery(api.organizations.getMyOrg);
 
   // State
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -42,6 +43,7 @@ export default function TasksScreen() {
   const [addTaskVisible, setAddTaskVisible] = useState(false);
   const [editTaskVisible, setEditTaskVisible] = useState(false);
   const [editTaskId, setEditTaskId] = useState<string | null>(null);
+  const [editTask, setEditTask] = useState<any>(null);
 
   // Auto-select event from router params
   useEffect(() => {
@@ -72,6 +74,8 @@ export default function TasksScreen() {
   const selectedEvent = selectedEventId
     ? myEvents.find((e: Event) => e._id === selectedEventId)
     : null;
+
+  const isHost = !!(selectedEvent && myOrg && selectedEvent.hostOrgId === myOrg._id);
 
   // Get all tasks across statuses for finding the selected task
   const allTasks =
@@ -205,6 +209,10 @@ export default function TasksScreen() {
         setEditTaskVisible={setEditTaskVisible}
         editTaskId={editTaskId}
         setEditTaskId={setEditTaskId}
+        editTask={editTask}
+        setEditTask={setEditTask}
+        isHost={isHost}
+        myOrg={myOrg}
       />
     </DragProvider>
   );
@@ -232,11 +240,13 @@ interface TasksScreenContentProps {
   setEditTaskVisible: (v: boolean) => void;
   editTaskId: string | null;
   setEditTaskId: (id: string | null) => void;
+  editTask: any;
+  setEditTask: (task: any) => void;
+  isHost: boolean;
+  myOrg: any;
 }
 
 function TasksScreenContent(props: TasksScreenContentProps) {
-  const { isDraggingTask } = useDragContext();
-
   return (
     <SafeAreaView style={styles.flex} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.BG_DARK} />
@@ -301,7 +311,7 @@ function TasksScreenContent(props: TasksScreenContentProps) {
             style={styles.kanbanContainer}
             contentContainerStyle={styles.kanbanContent}
             showsHorizontalScrollIndicator={false}
-            scrollEnabled={!isDraggingTask}
+            scrollEnabled={true}
           >
             <KanbanColumn
               status="TODO"
@@ -309,7 +319,9 @@ function TasksScreenContent(props: TasksScreenContentProps) {
               onTaskPress={(task) => props.setSelectedTaskId(task._id)}
               onTaskStatusChange={props.handleMoveTask}
               onTaskDelete={props.handleDeleteTask}
-              onAddTask={() => props.setAddTaskVisible(true)}
+              onAddTask={props.isHost ? () => props.setAddTaskVisible(true) : undefined}
+              myOrgId={props.myOrg?._id}
+              isHost={props.isHost}
             />
             <KanbanColumn
               status="IN_PROGRESS"
@@ -338,10 +350,13 @@ function TasksScreenContent(props: TasksScreenContentProps) {
           onStatusChange={props.handleMoveTask}
           onDelete={props.handleDeleteTask}
           onEdit={() => {
+            props.setEditTask(props.selectedTask);
             props.setEditTaskId(props.selectedTaskId);
             props.setEditTaskVisible(true);
             props.setSelectedTaskId(null);
           }}
+          isHost={props.isHost}
+          myOrgId={props.myOrg?._id}
         />
       )}
 
@@ -358,10 +373,10 @@ function TasksScreenContent(props: TasksScreenContentProps) {
       )}
 
       {/* Edit Task Modal */}
-      {props.editTaskId && props.selectedEvent && props.selectedTask && (
+      {props.editTaskId && props.selectedEvent && props.editTask && (
         <TaskEditModal
           isVisible={props.editTaskVisible}
-          task={props.selectedTask as any}
+          task={props.editTask}
           partners={props.partnerOrgs}
           onClose={() => {
             props.setEditTaskVisible(false);

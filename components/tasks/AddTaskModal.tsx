@@ -53,15 +53,18 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
   const [estimatedHours, setEstimatedHours] = useState("");
   const [dueDate, setDueDate] = useState<number | undefined>();
   const [loading, setLoading] = useState(false);
+  const [titleError, setTitleError] = useState(""); 
   const [showOrgPicker, setShowOrgPicker] = useState(false);
 
   const assignedOrg = partnerOrgs.find((o) => o._id === assignedOrgId);
 
   const handleCreateTask = async () => {
     if (!title.trim()) {
+      setTitleError("Task title is required");
       Alert.alert("Validation Error", "Please enter a task title");
       return;
     }
+    setTitleError("");
 
     setLoading(true);
     try {
@@ -133,13 +136,33 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
             {/* Title - Required */}
             <View style={styles.formGroup}>
               <Text style={styles.label}>Title *</Text>
-              <Input
+              <TextInput
+                style={{
+                  backgroundColor: Colors.BG_INPUT,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: Colors.BORDER,
+                  paddingHorizontal: 12,
+                  paddingVertical: 12,
+                  color: Colors.TEXT_PRIMARY,
+                  fontSize: 14,
+                  fontWeight: "500",
+                }}
                 placeholder="Enter task title"
+                placeholderTextColor={Colors.TEXT_MUTED}
                 value={title}
-                onChangeText={setTitle}
+                onChangeText={(text) => {
+                  setTitle(text);
+                  setTitleError("");
+                }}
                 maxLength={100}
                 editable={!loading}
               />
+              {titleError ? (
+                <Text style={{ color: Colors.ERROR, fontSize: 12, fontWeight: "600" }}>
+                  {titleError}
+                </Text>
+              ) : null}
             </View>
 
             {/* Description */}
@@ -365,7 +388,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.BG_DARK,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: "90%",
+    height: "85%",
     flexDirection: "column",
   },
   header: {

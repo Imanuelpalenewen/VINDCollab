@@ -181,3 +181,50 @@ export const updateEvent = mutation({
     });
   },
 });
+
+/**
+ * All events where my org is involved — as host OR accepted partner
+ */
+export const listMyInvolvedEvents = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const user = await ctx.db.get(userId);
+    if (!user?.orgId) return [];
+
+    // 1. Events where I am host
+    const hostedEvents = await ctx.db
+      .query("events")
+      .withIndex("by_host", (q) => q.eq("hostOrgId", user.orgId!))
+      .collect();
+
+    // 2. Events where I am accepted partner
+    const partnerships = await ctx.db
+      .query("partnerships")
+      .withIndex("by_partner", (q) => q.eq("partnerOrgId", user.orgId!))
+      .collect();
+
+    const acceptedPartnerships = partnerships.filter(
+      (p) => p.status === "ACCEPTED"
+    );
+
+    const partnerEventPromises = acceptedPartnerships.map((p) =>
+      ctx.db.get(p.eventId)
+    );
+    const partnerEvents = (await Promise.all(partnerEventPromises)).filter(
+      Boolean
+    );
+
+    // 3. Merge and deduplicate
+    const allEvents = [...hostedEvents, ...partnerEvents];
+    const seen = new Set<string>();
+    const uniqueEvents = allEvents.filter((e) => {
+      if (!e || seen.has(e._id)) return false;
+      seen.add(e._id);
+      return true;
+    });
+
+    return uniqueEvents;
+  },
+});
