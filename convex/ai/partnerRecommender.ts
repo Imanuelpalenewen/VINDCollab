@@ -271,7 +271,7 @@ Rules:
     let errBody = "";
 
     // Fallback model cascade
-    const allowedModels = ["gemini-2.0-flash", "gemini-2.0-flash-lite"];
+    const allowedModels = ["gemini-2.5-flash", "gemini-2.0-flash-lite"];
 
     for (const model of allowedModels) {
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -303,7 +303,20 @@ Rules:
       
       // Fallback for Rate Limit / Quota Exceeded 
       if (status === 429 || errBody.includes("Quota")) {
-        console.warn("Gemini API Quota Exceeded. Falling back to local heuristic scoring.");
+        let parsedErr: any = {};
+        try { parsedErr = JSON.parse(errBody); } catch {}
+
+        console.warn("═══════════════════════════════════════════");
+        console.warn("GEMINI QUOTA EXCEEDED — partnerRecommender");
+        console.warn("═══════════════════════════════════════════");
+        console.warn(`HTTP Status     : ${status}`);
+        console.warn(`Error Code      : ${parsedErr?.error?.code ?? "unknown"}`);
+        console.warn(`Error Status    : ${parsedErr?.error?.status ?? "unknown"}`);
+        console.warn(`Error Message   : ${parsedErr?.error?.message ?? errBody.slice(0, 300)}`);
+        console.warn(`Model Tried     : ${allowedModels.join(", ")}`);
+        console.warn(`API Key (5 chr) : ${apiKey?.slice(0, 5)}...`);
+        console.warn("→ Falling back to local heuristic scoring.");
+        console.warn("═══════════════════════════════════════════");
         
         const fallbackRecs = orgsToEvaluate.map((org) => {
           let score = 40 + Math.floor(Math.random() * 20);
