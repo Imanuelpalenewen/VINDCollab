@@ -11,6 +11,7 @@
 import type * as ai_partnerRecommender from "../ai/partnerRecommender.js";
 import type * as ai_taskBreakdown from "../ai/taskBreakdown.js";
 import type * as auth from "../auth.js";
+import type * as chat from "../chat.js";
 import type * as events from "../events.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   "ai/partnerRecommender": typeof ai_partnerRecommender;
   "ai/taskBreakdown": typeof ai_taskBreakdown;
   auth: typeof auth;
+  chat: typeof chat;
   events: typeof events;
   http: typeof http;
   invitations: typeof invitations;

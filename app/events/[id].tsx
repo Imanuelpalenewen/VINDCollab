@@ -228,6 +228,15 @@ export default function EventDetailScreen() {
             <Ionicons name="arrow-back" size={20} color={Colors.TEXT_SECONDARY} />
           </TouchableOpacity>
           <View style={{ flex: 1 }} />
+          {/* Chat Button */}
+          {((event.acceptedPartners ?? 0) > 0 || isMyEvent) && (
+            <TouchableOpacity 
+              style={[s.backBtn, { marginRight: 10 }]} 
+              onPress={() => router.push("/chat")}
+            >
+              <Ionicons name="chatbubbles-outline" size={20} color={Colors.PRIMARY} />
+            </TouchableOpacity>
+          )}
           {/* Status badge */}
           <View style={[s.statusBadge, { backgroundColor: cfg.bg, borderColor: cfg.border }]}>
             <Text style={[s.statusText, { color: cfg.color }]}>{cfg.label}</Text>

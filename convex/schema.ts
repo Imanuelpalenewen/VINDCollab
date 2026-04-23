@@ -1,6 +1,6 @@
+import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
   ...authTables,
@@ -26,55 +26,85 @@ export default defineSchema({
     inviteCodeCreatedAt: v.optional(v.number()),
   }).index("by_invite_code", ["inviteCode"]),
 
-
   events: defineTable({
     hostOrgId: v.id("organizations"),
     title: v.string(),
     description: v.string(),
     eventType: v.string(),
-    status: v.union(v.literal("DRAFT"), v.literal("OPEN"), v.literal("PLANNING"), v.literal("EXECUTING"), v.literal("COMPLETED")),
+    status: v.union(
+      v.literal("DRAFT"),
+      v.literal("OPEN"),
+      v.literal("PLANNING"),
+      v.literal("EXECUTING"),
+      v.literal("COMPLETED"),
+    ),
     startDate: v.number(),
     endDate: v.number(),
     requirements: v.array(v.string()),
     partnerCriteria: v.array(v.string()),
-  }).index("by_host", ["hostOrgId"]).index("by_status", ["status"]),
+  })
+    .index("by_host", ["hostOrgId"])
+    .index("by_status", ["status"]),
 
   partnerships: defineTable({
     eventId: v.id("events"),
     hostOrgId: v.id("organizations"),
     partnerOrgId: v.id("organizations"),
-    status: v.union(v.literal("PENDING"), v.literal("ACCEPTED"), v.literal("DECLINED")),
+    status: v.union(
+      v.literal("PENDING"),
+      v.literal("ACCEPTED"),
+      v.literal("DECLINED"),
+    ),
     role: v.string(),
     terms: v.optional(v.string()),
-  }).index("by_event", ["eventId"]).index("by_partner", ["partnerOrgId"]),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_partner", ["partnerOrgId"]),
 
   tasks: defineTable({
     eventId: v.id("events"),
     title: v.string(),
     description: v.optional(v.string()),
-    status: v.union(v.literal("TODO"), v.literal("IN_PROGRESS"), v.literal("DONE")),
+    status: v.union(
+      v.literal("TODO"),
+      v.literal("IN_PROGRESS"),
+      v.literal("DONE"),
+    ),
     assignedOrgId: v.optional(v.id("organizations")),
     estimatedHours: v.optional(v.number()),
     dueDate: v.optional(v.number()),
     isAiGenerated: v.boolean(),
     phase: v.optional(v.string()),
-    priority: v.optional(v.union(v.literal("HIGH"), v.literal("MED"), v.literal("LOW"))),
+    priority: v.optional(
+      v.union(v.literal("HIGH"), v.literal("MED"), v.literal("LOW")),
+    ),
     isCritical: v.optional(v.boolean()),
     parentTaskId: v.optional(v.id("tasks")),
     order: v.optional(v.number()),
     aiRationale: v.optional(v.string()),
-  }).index("by_event", ["eventId"]).index("by_status", ["status"]),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_status", ["status"]),
 
   taskDependencies: defineTable({
     taskId: v.id("tasks"),
     dependsOnTaskId: v.id("tasks"),
-    dependencyType: v.union(v.literal("FINISH_TO_START"), v.literal("START_TO_START")),
-  }).index("by_task", ["taskId"]).index("by_depends_on", ["dependsOnTaskId"]),
+    dependencyType: v.union(
+      v.literal("FINISH_TO_START"),
+      v.literal("START_TO_START"),
+    ),
+  })
+    .index("by_task", ["taskId"])
+    .index("by_depends_on", ["dependsOnTaskId"]),
 
   chatRooms: defineTable({
     eventId: v.id("events"),
     name: v.string(),
-    type: v.union(v.literal("EVENT"), v.literal("TASK"), v.literal("ANNOUNCEMENT")),
+    type: v.union(
+      v.literal("EVENT"),
+      v.literal("TASK"),
+      v.literal("ANNOUNCEMENT"),
+    ),
     createdBy: v.id("users"),
   }).index("by_event", ["eventId"]),
 
@@ -96,7 +126,12 @@ export default defineSchema({
   }).index("by_room_user", ["roomId", "userId"]),
 
   ai_cache: defineTable({
-    type: v.union(v.literal("PARTNER_REC"), v.literal("TASK_BREAKDOWN"), v.literal("PROGRESS_REPORT"), v.literal("POST_EVENT")),
+    type: v.union(
+      v.literal("PARTNER_REC"),
+      v.literal("TASK_BREAKDOWN"),
+      v.literal("PROGRESS_REPORT"),
+      v.literal("POST_EVENT"),
+    ),
     eventId: v.id("events"),
     payload: v.string(),
     generatedAt: v.number(),
@@ -112,14 +147,16 @@ export default defineSchema({
       v.literal("ACCEPTED"),
       v.literal("DECLINED"),
       v.literal("NEGOTIATING"),
-      v.literal("EXPIRED")
+      v.literal("EXPIRED"),
     ),
     proposedRole: v.string(),
     resourceContribution: v.optional(v.string()),
-    revenueSharing: v.optional(v.object({
-      percentage: v.number(),
-      method: v.string(),
-    })),
+    revenueSharing: v.optional(
+      v.object({
+        percentage: v.number(),
+        method: v.string(),
+      }),
+    ),
     responseDeadline: v.number(),
     personalMessage: v.optional(v.string()),
     declineReason: v.optional(v.string()),
@@ -136,16 +173,20 @@ export default defineSchema({
     proposedBy: v.id("organizations"),
     proposedRole: v.string(),
     resourceContribution: v.optional(v.string()),
-    revenueSharing: v.optional(v.object({
-      percentage: v.number(),
-      method: v.string(),
-    })),
+    revenueSharing: v.optional(
+      v.object({
+        percentage: v.number(),
+        method: v.string(),
+      }),
+    ),
     notes: v.optional(v.string()),
     respondedBy: v.optional(v.id("organizations")),
-    response: v.optional(v.union(
-      v.literal("ACCEPTED"),
-      v.literal("DECLINED"),
-      v.literal("COUNTER_PROPOSED")
-    )),
+    response: v.optional(
+      v.union(
+        v.literal("ACCEPTED"),
+        v.literal("DECLINED"),
+        v.literal("COUNTER_PROPOSED"),
+      ),
+    ),
   }).index("by_invitation", ["invitationId"]),
 });
