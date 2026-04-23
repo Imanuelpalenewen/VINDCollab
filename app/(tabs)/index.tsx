@@ -1,16 +1,20 @@
-import React from "react";
-import {
-  View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, Image, StatusBar,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useAuth } from "@/hooks/useAuth";
 import { EventCard } from "@/components/events/EventCard";
 import { Colors } from "@/constants/Colors";
+import { api } from "@/convex/_generated/api";
+import { useAuth } from "@/hooks/useAuth";
+import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "convex/react";
+import { useRouter } from "expo-router";
+import React from "react";
+import {
+    Image,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text, TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const AVATAR_PALETTE = ["#3B82F6","#8B5CF6","#EF4444","#10B981","#F59E0B","#06B6D4"];
 function getInitials(name: string) {
@@ -29,6 +33,17 @@ export default function HomeScreen() {
   const stats = useQuery(api.organizations.getOrgStats);
   const myEvents = useQuery(api.events.listMyEvents) ?? [];
   const openEvents = useQuery(api.events.listOpenEvents) ?? [];
+
+  // Get first active event for analytics
+  const firstActiveEvent = myEvents.find(
+    (e) => e.status === "OPEN" || e.status === "PLANNING" || e.status === "EXECUTING"
+  );
+
+  // Get progress report for first active event
+  const progressReport = useQuery(
+    api.ai.progressMonitor.getProgressReport,
+    firstActiveEvent ? { eventId: firstActiveEvent._id as any } : "skip"
+  );
 
   const avatarColor = getAvatarColor(org?.name ?? user?.name ?? "?");
   const initials = getInitials(org?.name ?? user?.name ?? "?");
@@ -95,6 +110,80 @@ export default function HomeScreen() {
             </View>
           ))}
         </View>
+
+        {/* ── Analytics Quick Card ────────────────────────── */}
+        {firstActiveEvent && (
+          <TouchableOpacity
+            style={styles.analyticsCard}
+            onPress={() => router.push("/(tabs)/stats")}
+            activeOpacity={0.8}
+          >
+            <View style={styles.analyticsHeader}>
+              <View>
+                <Text style={styles.analyticsTitle}>Analytics</Text>
+                <Text style={styles.analyticsEventName} numberOfLines={1}>
+                  {firstActiveEvent.title}
+                </Text>
+              </View>
+              <Ionicons name="stats-chart" size={24} color={Colors.PRIMARY} />
+            </View>
+
+            {progressReport ? (
+              <View style={styles.analyticsStats}>
+                <View style={styles.analyticsStat}>
+                  <Text style={styles.analyticsStatLabel}>Completion</Text>
+                  <Text style={[
+                    styles.analyticsStatValue,
+                    {
+                      color: progressReport.completionRate >= 70 ? Colors.SUCCESS :
+                             progressReport.completionRate >= 40 ? Colors.WARNING :
+                             Colors.ERROR
+                    }
+                  ]}>
+                    {progressReport.completionRate.toFixed(0)}%
+                  </Text>
+                </View>
+
+                <View style={styles.analyticsStat}>
+                  <Text style={styles.analyticsStatLabel}>Risk</Text>
+                  <View style={[
+                    styles.riskBadge,
+                    {
+                      backgroundColor: progressReport.riskLevel === "GREEN" ? "rgba(16,185,129,0.15)" :
+                                      progressReport.riskLevel === "YELLOW" ? "rgba(245,158,11,0.15)" :
+                                      "rgba(239,68,68,0.15)"
+                    }
+                  ]}>
+                    <Text style={[
+                      styles.riskBadgeText,
+                      {
+                        color: progressReport.riskLevel === "GREEN" ? Colors.SUCCESS :
+                               progressReport.riskLevel === "YELLOW" ? Colors.WARNING :
+                               Colors.ERROR
+                      }
+                    ]}>
+                      {progressReport.riskLevel}
+                    </Text>
+                  </View>
+                </View>
+
+                {progressReport.stagnantTasks.length > 0 && (
+                  <View style={styles.analyticsStat}>
+                    <Text style={styles.analyticsStatLabel}>Stagnant</Text>
+                    <Text style={styles.analyticsStatValue}>{progressReport.stagnantTasks.length}</Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <Text style={styles.analyticsEmpty}>Generate analysis</Text>
+            )}
+
+            <View style={styles.analyticsFooter}>
+              <Text style={styles.analyticsLink}>View Full Report</Text>
+              <Ionicons name="chevron-forward" size={16} color={Colors.PRIMARY} />
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* ── My Events ───────────────────────────────────── */}
         <View style={styles.sectionHeader}>
@@ -198,6 +287,36 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: 22, fontWeight: "800" },
   statLabel: { fontSize: 10, color: Colors.TEXT_MUTED, fontWeight: "600", textAlign: "center" },
+
+  // Analytics Card
+  analyticsCard: {
+    backgroundColor: Colors.BG_CARD, borderRadius: 16, borderWidth: 1,
+    borderColor: Colors.BORDER, padding: 16, marginBottom: 24,
+    gap: 12,
+  },
+  analyticsHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+  },
+  analyticsTitle: { fontSize: 16, fontWeight: "700", color: Colors.TEXT_PRIMARY },
+  analyticsEventName: { fontSize: 12, color: Colors.TEXT_MUTED, marginTop: 2 },
+  analyticsStats: {
+    flexDirection: "row", gap: 12,
+  },
+  analyticsStat: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.2)", borderRadius: 12, padding: 10, alignItems: "center", gap: 4,
+  },
+  analyticsStatLabel: { fontSize: 10, color: Colors.TEXT_MUTED, fontWeight: "600" },
+  analyticsStatValue: { fontSize: 16, fontWeight: "800", color: Colors.PRIMARY },
+  riskBadge: {
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: "transparent",
+  },
+  riskBadgeText: { fontSize: 11, fontWeight: "700" },
+  analyticsEmpty: { fontSize: 12, color: Colors.TEXT_MUTED, textAlign: "center", fontStyle: "italic" },
+  analyticsFooter: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)",
+  },
+  analyticsLink: { fontSize: 12, fontWeight: "700", color: Colors.PRIMARY },
 
   // Section headers
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },

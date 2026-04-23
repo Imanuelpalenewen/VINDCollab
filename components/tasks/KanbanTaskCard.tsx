@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/Badge";
 import { Colors } from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -10,13 +10,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  runOnJS,
 } from "react-native-reanimated";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useDragContext } from "./DragContext";
 
 interface Task {
@@ -41,6 +41,7 @@ interface KanbanTaskCardProps {
   onLongPress?: () => void;
   columnStatus: "TODO" | "IN_PROGRESS" | "DONE";
   canInteract: boolean;
+  canDrag?: boolean;
 }
 
 const statusOrder: Record<string, number> = {
@@ -66,6 +67,7 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   onLongPress,
   columnStatus,
   canInteract,
+  canDrag,
 }) => {
   const offsetX = useSharedValue(0);
   const offsetY = useSharedValue(0);
@@ -81,6 +83,9 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
 
   const dragContext = useDragContext();
   dragContextRef.current = dragContext;
+
+  // Use canDrag if provided, otherwise fall back to canInteract
+  const isDragEnabled = canDrag !== undefined ? canDrag : canInteract;
 
   useEffect(() => {
     return () => {
@@ -105,16 +110,12 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
     (columnRef.current as any)?.measure?.(
       (_x: number, _y: number, _w: number, height: number) => {
         const relY = translationY + height / 2;
-
         if (relY < EDGE_ZONE) {
           setAutoScrollState({ scrolling: true, direction: "up" });
           if (!autoScrollIntervalRef.current) {
             autoScrollIntervalRef.current = setInterval(() => {
               scrollOffsetRef.current = Math.max(0, scrollOffsetRef.current - AUTO_SCROLL_SPEED);
-              columnRef.current?.scrollToOffset({
-                offset: scrollOffsetRef.current,
-                animated: false,
-              });
+              columnRef.current?.scrollToOffset({ offset: scrollOffsetRef.current, animated: false });
             }, 16);
           }
         } else if (relY > height - EDGE_ZONE) {
@@ -122,10 +123,7 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
           if (!autoScrollIntervalRef.current) {
             autoScrollIntervalRef.current = setInterval(() => {
               scrollOffsetRef.current += AUTO_SCROLL_SPEED;
-              columnRef.current?.scrollToOffset({
-                offset: scrollOffsetRef.current,
-                animated: false,
-              });
+              columnRef.current?.scrollToOffset({ offset: scrollOffsetRef.current, animated: false });
             }, 16);
           }
         } else {
@@ -149,25 +147,21 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   };
 
   const handleDragEnd = async (translationX: number, translationY: number) => {
-    if (!canInteract) return;
+    if (!isDragEnabled) return;
     const isHorizontalSwipe =
-      Math.abs(translationX) > SWIPE_THRESHOLD &&
-      Math.abs(translationY) < SWIPE_Y_MAX;
+      Math.abs(translationX) > SWIPE_THRESHOLD && Math.abs(translationY) < SWIPE_Y_MAX;
 
     if (isHorizontalSwipe) {
-      // ── Change status column ─────────────────────────────────────────────
       const currentStatusIndex = statusOrder[task.status];
-      const statuses: ("TODO" | "IN_PROGRESS" | "DONE")[] = [
-        "TODO",
-        "IN_PROGRESS",
-        "DONE",
-      ];
-
+      const statuses: ("TODO" | "IN_PROGRESS" | "DONE")[] = ["TODO", "IN_PROGRESS", "DONE"];
       let newStatus: "TODO" | "IN_PROGRESS" | "DONE" | null = null;
-      if (translationX > SWIPE_THRESHOLD && currentStatusIndex > 0) {
-        newStatus = statuses[currentStatusIndex - 1];
-      } else if (translationX < -SWIPE_THRESHOLD && currentStatusIndex < 2) {
+
+      // Swipe RIGHT (positive) = maju status (TO → IN_PROGRESS → DONE)
+      // Swipe LEFT (negative) = mundur status (DONE → IN_PROGRESS → TO)
+      if (translationX > SWIPE_THRESHOLD && currentStatusIndex < 2) {
         newStatus = statuses[currentStatusIndex + 1];
+      } else if (translationX < -SWIPE_THRESHOLD && currentStatusIndex > 0) {
+        newStatus = statuses[currentStatusIndex - 1];
       }
 
       if (newStatus) {
@@ -180,14 +174,12 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
           setLoading(false);
         }
       }
-    } else if (Math.abs(translationY) > 20 && onReorder) {
-      // ── Reorder within column ────────────────────────────────────────────
+    } else if (Math.abs(translationY) > 20 && onReorder && canInteract) {
+      // Only allow reordering for users with canInteract permission
       const delta = Math.round(translationY / CARD_HEIGHT);
       if (delta !== 0) {
         const newIndex = Math.max(0, Math.min(totalTasks - 1, taskIndex + delta));
-        if (newIndex !== taskIndex) {
-          onReorder(newIndex);
-        }
+        if (newIndex !== taskIndex) onReorder(newIndex);
       }
     }
   };
@@ -201,22 +193,10 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
     dragContext.setDragTranslationY(0);
   };
 
-  /**
-   * KEY FIX — scroll conflict:
-   *
-   * .activateAfterLongPress(ms) has an important behaviour:
-   *   - Finger moves before timer expires  → gesture FAILS automatically
-   *                                          → FlatList receives touch → scrolls normally ✓
-   *   - Finger stays still for `ms`        → gesture ACTIVATES → onStart fires → drag works ✓
-   *
-   * No separate LongPress gesture or isActivated shared value needed.
-   * This is the correct RNGH v2 pattern for drag-inside-scroll.
-   */
   const panGesture = Gesture.Pan()
     .activateAfterLongPress(LONG_PRESS_DURATION)
-    .enabled(canInteract)
+    .enabled(isDragEnabled)
     .onStart(() => {
-      // Fires only after long press threshold — card is now "grabbed"
       scale.value = withSpring(1.05, { damping: 10, mass: 0.5 });
       runOnJS(handleDragStart)();
     })
@@ -229,8 +209,6 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
       runOnJS(handleDragEnd)(translationX, translationY);
     })
     .onFinalize(() => {
-      // Runs after onEnd AND when gesture is cancelled / finger moved before long press
-      // Safe to always reset here
       offsetX.value = withSpring(0, { damping: 12, mass: 0.5 });
       offsetY.value = withSpring(0, { damping: 12, mass: 0.5 });
       scale.value = withSpring(1, { damping: 12, mass: 0.5 });
@@ -248,20 +226,13 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   const isOverdue = task.dueDate ? task.dueDate < Date.now() : false;
 
   const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleDateString("id-ID", {
-      month: "short",
-      day: "numeric",
-    });
+    new Date(timestamp).toLocaleDateString("id-ID", { month: "short", day: "numeric" });
+
+  const currentIdx = statusOrder[task.status];
 
   return (
     <GestureDetector gesture={panGesture}>
-      <Animated.View
-        style={[
-          styles.container,
-          animatedStyle,
-          isDragging && styles.containerDragging,
-        ]}
-      >
+      <Animated.View style={[styles.container, animatedStyle, isDragging && styles.containerDragging]}>
         <TouchableOpacity
           style={[
             styles.card,
@@ -279,54 +250,61 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
             </View>
           )}
 
-          <Text style={styles.title} numberOfLines={2}>
-            {task.title}
-          </Text>
+          <Text style={styles.title} numberOfLines={2}>{task.title}</Text>
 
           <View style={styles.metaRow}>
             {task.priority && (
               <Badge
-                variant={
-                  task.priority === "HIGH"
-                    ? "red"
-                    : task.priority === "MED"
-                    ? "amber"
-                    : "green"
-                }
+                variant={task.priority === "HIGH" ? "red" : task.priority === "MED" ? "amber" : "green"}
                 label={task.priority}
               />
             )}
             {task.isCritical && (
-              <Ionicons name="flash" size={14} color={Colors.WARNING} />
+              <View style={styles.criticalBadge}>
+                <Ionicons name="flash" size={11} color={Colors.WARNING} />
+                <Text style={styles.criticalText}>Critical</Text>
+              </View>
             )}
           </View>
 
           {task.assignedOrgName && (
-            <Text style={styles.orgName} numberOfLines={1}>
-              👤 {task.assignedOrgName}
-            </Text>
+            <View style={styles.orgRow}>
+              <Ionicons name="business-outline" size={12} color={Colors.TEXT_MUTED} />
+              <Text style={styles.orgName} numberOfLines={1}>{task.assignedOrgName}</Text>
+            </View>
           )}
 
           <View style={styles.footer}>
             {task.dueDate && (
-              <Text
-                style={[styles.footerText, isOverdue && styles.overdueText]}
-              >
-                📅 {formatDate(task.dueDate)}
-              </Text>
+              <View style={styles.footerItem}>
+                <Ionicons name="calendar-outline" size={11} color={isOverdue ? Colors.ERROR : Colors.TEXT_MUTED} />
+                <Text style={[styles.footerText, isOverdue && styles.overdueText]}>
+                  {formatDate(task.dueDate)}
+                </Text>
+              </View>
             )}
             {task.estimatedHours && (
-              <Text style={styles.footerText}>⏱️ {task.estimatedHours}h</Text>
+              <View style={styles.footerItem}>
+                <Ionicons name="time-outline" size={11} color={Colors.TEXT_MUTED} />
+                <Text style={styles.footerText}>{task.estimatedHours}h</Text>
+              </View>
             )}
           </View>
 
-          <Text style={styles.swipeHint}>
-            {isDragging
-              ? "🎯 Drop to reorder"
-              : isLongPressActive
-              ? "🎯 Drag now"
-              : `${statusOrder[task.status] > 0 ? "← " : ""}Hold & Drag${statusOrder[task.status] < 2 ? " →" : ""}`}
-          </Text>
+          {/* Swipe hint */}
+          {isDragEnabled && (
+            <View style={styles.hintRow}>
+              {currentIdx < 2 && (
+                <Ionicons name="chevron-forward" size={12} color={Colors.BORDER} />
+              )}
+              <Text style={styles.swipeHint}>
+                {isDragging ? "Drop to reorder" : isLongPressActive ? "Drag now" : "Hold & drag"}
+              </Text>
+              {currentIdx > 0 && (
+                <Ionicons name="chevron-back" size={12} color={Colors.BORDER} />
+              )}
+            </View>
+          )}
         </TouchableOpacity>
       </Animated.View>
     </GestureDetector>
@@ -390,15 +368,40 @@ const styles = StyleSheet.create({
     gap: 6,
     flexWrap: "wrap",
   },
+  criticalBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: "rgba(245,158,11,0.15)",
+  },
+  criticalText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.WARNING,
+  },
+  orgRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   orgName: {
     fontSize: 12,
     color: Colors.TEXT_SECONDARY,
     fontWeight: "500",
+    flex: 1,
   },
   footer: {
     flexDirection: "row",
-    gap: 8,
-    marginTop: 4,
+    gap: 12,
+    marginTop: 2,
+  },
+  footerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
   },
   footerText: {
     fontSize: 11,
@@ -409,11 +412,17 @@ const styles = StyleSheet.create({
     color: Colors.ERROR,
     fontWeight: "700",
   },
+  hintRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    marginTop: 2,
+  },
   swipeHint: {
     fontSize: 9,
     color: Colors.BORDER,
     fontWeight: "600",
-    marginTop: 2,
     textAlign: "center",
   },
 });

@@ -1,6 +1,6 @@
-import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
+import { Ionicons } from "@expo/vector-icons";
+import { Tabs } from "expo-router";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -94,6 +94,13 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="stats"
+        options={{
+          title: "Analytics",
+          href: null,
+        }}
+      />
       {/* More — rightmost tab */}
       <Tabs.Screen
         name="more"
@@ -110,7 +117,6 @@ export default function TabLayout() {
       />
       {/* Hidden — accessible via router.push("/org-profile") */}
       <Tabs.Screen name="profile" options={{ href: null }} />
-      <Tabs.Screen name="stats" options={{ href: null }} />
     </Tabs>
   );
 }

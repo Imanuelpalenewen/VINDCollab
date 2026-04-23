@@ -2,15 +2,15 @@ import { Badge } from "@/components/ui/Badge";
 import { Colors } from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
 import React, {
-  useRef,
-  useEffect,
-  useState,
-  useMemo,
   useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { KanbanTaskCard } from "./KanbanTaskCard";
 import { useDragContext } from "./DragContext";
+import { KanbanTaskCard } from "./KanbanTaskCard";
 
 interface Task {
   _id: string;
@@ -39,9 +39,24 @@ interface KanbanColumnProps {
 }
 
 const statusConfig = {
-  TODO: { emoji: "📋", label: "To Do", color: Colors.INFO },
-  IN_PROGRESS: { emoji: "🔄", label: "In Progress", color: Colors.WARNING },
-  DONE: { emoji: "✅", label: "Done", color: Colors.SUCCESS },
+  TODO: {
+    icon: "clipboard-outline" as const,
+    iconColor: Colors.INFO,
+    label: "To Do",
+    color: Colors.INFO,
+  },
+  IN_PROGRESS: {
+    icon: "time-outline" as const,
+    iconColor: Colors.WARNING,
+    label: "In Progress",
+    color: Colors.WARNING,
+  },
+  DONE: {
+    icon: "checkmark-circle-outline" as const,
+    iconColor: Colors.SUCCESS,
+    label: "Done",
+    color: Colors.SUCCESS,
+  },
 };
 
 const CARD_HEIGHT = 120;
@@ -138,7 +153,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Text style={styles.headerEmoji}>{config.emoji}</Text>
+          <Ionicons name={config.icon} size={18} color={config.iconColor} />
           <View style={styles.headerText}>
             <Text style={styles.headerLabel}>{config.label}</Text>
             <Badge
@@ -195,6 +210,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                 totalTasks={localTasks.length}
                 columnStatus={status}
                 canInteract={!!isHost || item.assignedOrgId === myOrgId}
+                canDrag={true}
                 onPress={() => onTaskPress(item)}
                 onStatusChange={(newStatus) =>
                   onTaskStatusChange(item._id, newStatus)
@@ -235,9 +251,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     flex: 1,
-  },
-  headerEmoji: {
-    fontSize: 20,
   },
   headerText: {
     flexDirection: "row",

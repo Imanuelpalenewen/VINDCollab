@@ -1,6 +1,6 @@
+import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
   ...authTables,
@@ -148,4 +148,47 @@ export default defineSchema({
       v.literal("COUNTER_PROPOSED")
     )),
   }).index("by_invitation", ["invitationId"]),
+
+  progressReports: defineTable({
+    eventId: v.id("events"),
+    hostOrgId: v.id("organizations"),
+    riskScore: v.number(),
+    riskLevel: v.union(v.literal("GREEN"), v.literal("YELLOW"), v.literal("RED")),
+    completionRate: v.number(),
+    velocity: v.number(),
+    predictedCompletionDate: v.optional(v.number()),
+    alerts: v.array(v.object({
+      id: v.string(),
+      title: v.string(),
+      description: v.string(),
+      riskLevel: v.union(v.literal("GREEN"), v.literal("YELLOW"), v.literal("RED")),
+      affectedTaskIds: v.array(v.id("tasks")),
+      suggestions: v.array(v.string()),
+      detectedAt: v.number(),
+    })),
+    stagnantTasks: v.array(v.object({
+      taskId: v.id("tasks"),
+      title: v.string(),
+      statusSince: v.number(),
+      assignedOrgId: v.id("organizations"),
+    })),
+    blockedOrgResponseTime: v.array(v.object({
+      orgId: v.id("organizations"),
+      avgResponseTime: v.number(),
+      isUnresponsive: v.boolean(),
+    })),
+    generatedAt: v.number(),
+    expiresAt: v.optional(v.number()),
+  })
+    .index("by_event_host", ["eventId", "hostOrgId"])
+    .index("by_event", ["eventId"]),
+
+  alertFeedback: defineTable({
+    progressReportId: v.id("progressReports"),
+    alertId: v.string(),
+    action: v.union(v.literal("ACKNOWLEDGED"), v.literal("DISMISSED")),
+    reason: v.optional(v.string()),
+    userId: v.id("users"),
+    timestamp: v.number(),
+  }).index("by_report", ["progressReportId"]),
 });
