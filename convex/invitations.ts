@@ -282,13 +282,34 @@ export const respondToInvitation = mutation({
       response: "ACCEPTED",
     });
 
-    // Auto-create chat room for event
-    await ctx.db.insert("chatRooms", {
-      eventId: invitation.eventId,
-      name: `partnership-${invitation.senderOrgId}-${invitation.recipientOrgId}`,
-      type: "EVENT",
-      createdBy: userId,
-    });
+    console.log(`[respondToInvitation] Invitation ${args.invitationId} ACCEPTED by ${orgId}. Preparing to auto-create chat rooms for event ${invitation.eventId}.`);
+
+    // Auto-create #general and #announcements chat rooms for the event if they don't exist
+    const existingRooms = await ctx.db
+      .query("chatRooms")
+      .withIndex("by_event", (q) => q.eq("eventId", invitation.eventId))
+      .collect();
+
+    const hasGeneral = existingRooms.some(r => r.type === "EVENT" && r.name === "#general");
+    const hasAnnouncements = existingRooms.some(r => r.type === "ANNOUNCEMENT" && r.name === "#announcements");
+
+    if (!hasGeneral) {
+      await ctx.db.insert("chatRooms", {
+        eventId: invitation.eventId,
+        name: "#general",
+        type: "EVENT",
+        createdBy: userId,
+      });
+    }
+
+    if (!hasAnnouncements) {
+      await ctx.db.insert("chatRooms", {
+        eventId: invitation.eventId,
+        name: "#announcements",
+        type: "ANNOUNCEMENT",
+        createdBy: userId,
+      });
+    }
 
     // Trigger AI Task Breakdown generation
     await ctx.scheduler.runAfter(0, internal.ai.taskBreakdown.generateTaskBreakdown, {
