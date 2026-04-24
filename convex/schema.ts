@@ -84,6 +84,7 @@ export default defineSchema({
     senderUserId: v.id("users"),
     content: v.string(),
     attachmentUrl: v.optional(v.string()),
+    replyToMessageId: v.optional(v.id("chatMessages")),
     isEdited: v.boolean(),
     editedAt: v.optional(v.number()),
   }).index("by_room", ["roomId"]),
