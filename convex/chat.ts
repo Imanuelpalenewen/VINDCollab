@@ -90,16 +90,13 @@ export const sendMessage = mutation({
       throw new Error("Only the host can send announcements");
     }
 
-    // TODO: add `replyToMessageId: v.optional(v.id("chatMessages"))` to the
-    // chatMessages table in schema.ts to persist reply threading.
-    // The arg is accepted here so the client compiles; omitted from insert
-    // until the schema field is added.
     return await ctx.db.insert("chatMessages", {
       roomId: args.roomId,
       senderOrgId: orgId,
       senderUserId: userId,
       content: args.content,
       attachmentUrl: args.attachmentUrl,
+      replyToMessageId: args.replyToMessageId,
       isEdited: false,
     });
   },
@@ -458,11 +455,17 @@ export const getMyEventsWithRooms = query({
     const result: Array<{ _id: Id<"events">; title: string; eventType: string; status: string }> = [];
     for (const event of uniqueEvents) {
       if (!event) continue;
-      const rooms = await ctx.db
+      // Collect all rooms for this event (bounded by eventId index — safe)
+      const allRoomsForEvent = await ctx.db
         .query("chatRooms")
         .withIndex("by_event", (q) => q.eq("eventId", event._id))
-        .take(1);
-      if (rooms.length > 0) {
+        .collect();
+      // Only count rooms that are actually visible in the UI:
+      // exclude partnership side-channels and TASK rooms
+      const visibleRooms = allRoomsForEvent.filter(
+        (r) => !r.name.startsWith("partnership-") && r.type !== "TASK"
+      );
+      if (visibleRooms.length > 0) {
         result.push({
           _id: event._id,
           title: event.title,
@@ -531,5 +534,74 @@ export const getSmartReplies = action({
     } catch {
       return { replies: [] as string[] };
     }
+  },
+});
+
+// ─── Migration ───────────────────────────────────────────────────────────────
+// Run once with: npx convex run chat:backfillEventRooms
+// Ensures every event that has at least one ACCEPTED partnership also has
+// the default #general (EVENT) and #announcements (ANNOUNCEMENT) chat rooms.
+export const backfillEventRooms = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // 1. Collect all accepted partnerships
+    const allPartnerships = await ctx.db.query("partnerships").collect();
+    const accepted = allPartnerships.filter((p) => p.status === "ACCEPTED");
+
+    // 2. De-duplicate event IDs so we process each event once
+    const eventIds = [...new Set(accepted.map((p) => p.eventId))];
+
+    // 3. Pre-load users so we have a valid createdBy reference (migration only)
+    const allUsers = await ctx.db.query("users").take(100);
+
+    let created = 0;
+
+    for (const eventId of eventIds) {
+      const event = await ctx.db.get(eventId);
+      if (!event) continue;
+
+      // Pick a user from the host org as the room creator; fall back to any user
+      const creator =
+        allUsers.find((u) => u.orgId === event.hostOrgId) ?? allUsers[0];
+      if (!creator) continue;
+
+      // 4. Check existing rooms for this event
+      const existingRooms = await ctx.db
+        .query("chatRooms")
+        .withIndex("by_event", (q) => q.eq("eventId", eventId))
+        .collect();
+
+      const hasGeneral = existingRooms.some((r) => r.name === "#general");
+      const hasAnnouncements = existingRooms.some(
+        (r) => r.name === "#announcements"
+      );
+
+      // 5. Create whichever rooms are missing
+      if (!hasGeneral) {
+        await ctx.db.insert("chatRooms", {
+          eventId,
+          name: "#general",
+          type: "EVENT",
+          createdBy: creator._id,
+        });
+        created++;
+      }
+
+      if (!hasAnnouncements) {
+        await ctx.db.insert("chatRooms", {
+          eventId,
+          name: "#announcements",
+          type: "ANNOUNCEMENT",
+          createdBy: creator._id,
+        });
+        created++;
+      }
+    }
+
+    return {
+      processedEvents: eventIds.length,
+      roomsCreated: created,
+      message: `Backfill complete. Processed ${eventIds.length} event(s), created ${created} room(s).`,
+    };
   },
 });

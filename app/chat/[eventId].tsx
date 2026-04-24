@@ -181,8 +181,8 @@ export default function EventChatScreen() {
   };
 
   const getRoomLabel = (room: { name: string; type: string }) => {
-    const prefix = room.type === "ANNOUNCEMENT" ? "#" : "#";
-    return `${prefix}${room.name.toLowerCase().replace(/\s+/g, "-")}`;
+    // room.name already includes the # prefix (e.g. "#general", "#announcements")
+    return room.name.toLowerCase().replace(/\s+/g, "-");
   };
 
   if (event === undefined || rooms === undefined || myOrg === undefined) {
