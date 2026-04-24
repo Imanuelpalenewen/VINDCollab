@@ -192,4 +192,25 @@ export default defineSchema({
     userId: v.id("users"),
     timestamp: v.number(),
   }).index("by_report", ["progressReportId"]),
+
+  postEventReports: defineTable({
+    eventId: v.id("events"),
+    generatedAt: v.number(),
+    executiveSummary: v.string(),
+    overallScore: v.number(),
+    totalTasks: v.number(),
+    completionRate: v.number(),
+    onTimeRate: v.number(),
+    avgResponseTime: v.number(),
+    lessonsLearned: v.array(v.string()),
+    partnerScores: v.array(v.object({
+      orgId: v.id("organizations"),
+      orgName: v.string(),
+      score: v.number(),
+      tasksCompleted: v.number(),
+      totalTasks: v.number(),
+      avgHours: v.number(),
+    })),
+    recommendations: v.array(v.string()),
+  }).index("by_event", ["eventId"]),
 });
