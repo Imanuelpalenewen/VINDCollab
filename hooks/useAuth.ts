@@ -13,7 +13,7 @@ export function useAuth() {
 
   // Treat as "loading" while auth resolves OR while the user profile is being fetched
   const isLoading = authLoading || (isAuthenticated && user === undefined);
-
+ 
   return {
     isAuthenticated,
     isLoading,

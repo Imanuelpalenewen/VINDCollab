@@ -33,6 +33,28 @@ async function assertEventAccess(ctx: any, eventId: Id<"events">, orgId: Id<"org
   return event;
 }
 
+async function getMessageSenderDetails(
+  ctx: any,
+  senderUserId: Id<"users">,
+  senderOrgId?: Id<"organizations">
+) {
+  const senderUser = await ctx.db.get(senderUserId);
+  const resolvedOrgId = senderOrgId ?? senderUser?.orgId;
+  const senderOrg = resolvedOrgId ? await ctx.db.get(resolvedOrgId) : null;
+
+  return {
+    senderUser: senderUser
+      ? {
+          _id: senderUser._id,
+          name: senderUser.name,
+          avatarUrl: senderUser.avatarUrl,
+        }
+      : null,
+    senderOrg,
+    senderDisplayName: senderUser?.name ?? senderOrg?.name ?? "Unknown",
+  };
+}
+
 export const createRoom = mutation({
   args: {
     eventId: v.id("events"),
@@ -92,7 +114,6 @@ export const sendMessage = mutation({
 
     return await ctx.db.insert("chatMessages", {
       roomId: args.roomId,
-      senderOrgId: orgId,
       senderUserId: userId,
       content: args.content,
       attachmentUrl: args.attachmentUrl,
@@ -340,20 +361,25 @@ export const getMessagesByRoom = query({
       .order("desc") // We want the newest messages first for the inverted FlatList
       .paginate(args.paginationOpts);
 
-    // Fetch org details for each message
-    const messagesWithOrg = await Promise.all(
+    const messagesWithIdentity = await Promise.all(
       page.page.map(async (msg) => {
-        const org = await ctx.db.get(msg.senderOrgId);
+        const sender = await getMessageSenderDetails(
+          ctx,
+          msg.senderUserId,
+          msg.senderOrgId
+        );
         return {
           ...msg,
-          senderOrg: org,
+          senderUser: sender.senderUser,
+          senderOrg: sender.senderOrg,
+          senderDisplayName: sender.senderDisplayName,
         };
       })
     );
 
     return {
       ...page,
-      page: messagesWithOrg,
+      page: messagesWithIdentity,
     };
   },
 });
@@ -489,8 +515,12 @@ export const getRecentMessagesForSmartReply = internalQuery({
       .take(5);
     return await Promise.all(
       messages.reverse().map(async (msg) => {
-        const org = await ctx.db.get(msg.senderOrgId);
-        return { content: msg.content, senderName: org?.name ?? "Unknown" };
+        const sender = await getMessageSenderDetails(
+          ctx,
+          msg.senderUserId,
+          msg.senderOrgId
+        );
+        return { content: msg.content, senderName: sender.senderDisplayName };
       })
     );
   },
@@ -602,6 +632,78 @@ export const backfillEventRooms = mutation({
       processedEvents: eventIds.length,
       roomsCreated: created,
       message: `Backfill complete. Processed ${eventIds.length} event(s), created ${created} room(s).`,
+    };
+  },
+});
+
+// ─── Migration: Sender Org Backfill ─────────────────────────────────────────
+// Optional maintenance utility for legacy analytics/audits that still expect
+// senderOrgId on chat messages. It fills only rows that are currently missing.
+export const backfillSenderOrgFromUser = mutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+    maxItems: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const caller = await ctx.db.get(userId);
+    if (!caller || caller.role !== "admin") {
+      throw new Error("Only admin can run this migration");
+    }
+
+    const dryRun = args.dryRun ?? true;
+    const maxItems = Math.max(1, Math.min(args.maxItems ?? 2000, 10000));
+
+    const allMessages = await ctx.db.query("chatMessages").take(maxItems);
+
+    let inspected = 0;
+    let missingSenderOrg = 0;
+    let patched = 0;
+    let skippedNoSenderUser = 0;
+    let skippedSenderUserNoOrg = 0;
+
+    for (const msg of allMessages) {
+      inspected++;
+
+      if (msg.senderOrgId) {
+        continue;
+      }
+
+      missingSenderOrg++;
+
+      const senderUser = await ctx.db.get(msg.senderUserId);
+      if (!senderUser) {
+        skippedNoSenderUser++;
+        continue;
+      }
+
+      if (!senderUser.orgId) {
+        skippedSenderUserNoOrg++;
+        continue;
+      }
+
+      if (!dryRun) {
+        await ctx.db.patch(msg._id, {
+          senderOrgId: senderUser.orgId,
+        });
+      }
+
+      patched++;
+    }
+
+    return {
+      dryRun,
+      inspected,
+      missingSenderOrg,
+      patched,
+      skippedNoSenderUser,
+      skippedSenderUserNoOrg,
+      maxItems,
+      message: dryRun
+        ? "Dry-run complete. Re-run with dryRun=false to apply patches."
+        : "Backfill complete.",
     };
   },
 });
