@@ -80,7 +80,7 @@ export default defineSchema({
 
   chatMessages: defineTable({
     roomId: v.id("chatRooms"),
-    senderOrgId: v.id("organizations"),
+    senderOrgId: v.optional(v.id("organizations")),
     senderUserId: v.id("users"),
     content: v.string(),
     attachmentUrl: v.optional(v.string()),
@@ -213,4 +213,11 @@ export default defineSchema({
     })),
     recommendations: v.array(v.string()),
   }).index("by_event", ["eventId"]),
+
+  chatRoomMembers: defineTable({
+    roomId: v.id("chatRooms"),
+    orgId: v.id("organizations"),
+    role: v.union(v.literal("ADMIN"), v.literal("MEMBER"), v.literal("READ_ONLY")),
+    joinedAt: v.number(),
+  }).index("by_room", ["roomId"]).index("by_room_org", ["roomId", "orgId"]),
 });

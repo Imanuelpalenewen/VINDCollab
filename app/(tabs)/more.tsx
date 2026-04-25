@@ -277,7 +277,7 @@ export default function MoreScreen() {
             iconColor="#C4B5FD"
             label="Post-Event Report"
             subtitle="AI-generated insights"
-            onPress={() => handleComingSoon("Post-Event Report")}
+            onPress={() => router.push("/(tabs)/report")}
           />
           <View style={styles.divider} />
           <MenuRow
@@ -304,7 +304,7 @@ export default function MoreScreen() {
             iconColor="#FCA5A5"
             label="Rooms & Members"
             subtitle="Host-only management"
-            onPress={() => handleComingSoon("Rooms & Members")}
+            onPress={() => router.push("/rooms")}
           />
         </View>
 
