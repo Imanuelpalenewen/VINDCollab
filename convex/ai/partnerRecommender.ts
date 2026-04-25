@@ -126,7 +126,7 @@ export const saveRecommendationCache = internalMutation({
  *
  * Perceive → Reason → Act pipeline:
  *  1. Perceive: gather event requirements, partner criteria, candidate orgs
- *  2. Reason:   Gemini Flash 2.0 multi-criteria scoring with explanation
+ *  2. Reason:   Mistral AI multi-criteria scoring with explanation
  *  3. Act:      return ranked list, cache for 24 h
  */
 export const generatePartnerRecommendations = action({
@@ -209,7 +209,7 @@ export const generatePartnerRecommendations = action({
     // If pre-filter removes everyone, fall back to all candidates
     const orgsToEvaluate = preFiltered.length > 0 ? preFiltered : candidates;
 
-    // ─── 4. Reason: call Gemini Flash 2.0 ─────────────────────────────
+    // ─── 4. Reason: build prompt ──────────────────────────────────────
     const orgListText = orgsToEvaluate
       .map(
         (o, i) =>
@@ -250,144 +250,198 @@ Rules:
 - score >= 80 means excellent match, 50-79 good, below 50 partial/weak.
 `.trim();
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    // ─── 5. Call Mistral AI ───────────────────────────────────────────
+    const apiKey = process.env.MISTRAL_API_KEY;
     if (!apiKey) {
       throw new Error(
-        "GEMINI_API_KEY is not set. Add it in the Convex Dashboard → Settings → Environment Variables.",
+        "MISTRAL_API_KEY is not set. Add it in the Convex Dashboard → Settings → Environment Variables.",
       );
     }
 
-    const payload = {
-      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.3,
-        maxOutputTokens: 4096,
-      },
+    const mistralPayload = {
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+      max_tokens: 4096,
     };
+
+    const MISTRAL_URL = "https://api.mistral.ai/v1/chat/completions";
+
+    // ── Model Cascade (free tier models, best for agentic AI) ─────────
+    // mistral-small-latest → Best quality on free tier, fast & capable
+    // open-mistral-nemo    → Multilingual 12B, open-weight fallback
+    // open-mistral-7b      → Lightweight last-resort fallback
+    const allowedModels = [
+      "mistral-small-latest",
+      "open-mistral-nemo",
+      "open-mistral-7b",
+    ];
 
     let response: Response | null = null;
     let errBody = "";
+    let activeModel = "";
 
-    // Fallback model cascade
-    const allowedModels = ["gemini-2.5-flash", "gemini-2.0-flash-lite"];
+    console.log("[PartnerRecommender] 🚀 Starting Mistral AI model cascade...");
 
     for (const model of allowedModels) {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      console.log(`[PartnerRecommender] 🔄 Trying model: ${model}`);
       try {
-        response = await fetch(geminiUrl, {
+        response = await fetch(MISTRAL_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ ...mistralPayload, model }),
         });
 
         if (response.ok) {
-          break; // Successfully got response
+          activeModel = model;
+          console.log(`[PartnerRecommender] ✅ SUCCESS — Active model: ${model}`);
+          break;
         }
 
         errBody = await response.text();
-        if (response.status === 429 || errBody.includes("Quota")) {
-          // If we hit a hard API rate limit / quota, just stop and go to local mock algorithm
-          break;
+        console.warn(
+          `[PartnerRecommender] ⚠️  Model [${model}] failed` +
+            ` | HTTP ${response.status}` +
+            ` | ${errBody.slice(0, 200)}`,
+        );
+
+        if (
+          response.status === 429 ||
+          errBody.includes("rate_limit") ||
+          errBody.includes("Rate limit")
+        ) {
+          console.warn(
+            `[PartnerRecommender] 🚫 RATE LIMITED on [${model}] — switching to next model...`,
+          );
+          response = null;
+          continue;
         }
+        // Non-quota error: stop cascade
+        break;
       } catch (err: any) {
         errBody = err.message;
+        console.warn(`[PartnerRecommender] 🔌 Network error on [${model}]: ${errBody}`);
+        response = null;
       }
     }
 
+    // ─── 6. Handle failure: fallback to local heuristic ──────────────
     if (!response || !response.ok) {
       errBody = errBody || "Unknown network error or all models failed.";
       const status = response ? response.status : 500;
 
-      
-      // Fallback for Rate Limit / Quota Exceeded 
-      if (status === 429 || errBody.includes("Quota")) {
-        let parsedErr: any = {};
-        try { parsedErr = JSON.parse(errBody); } catch {}
+      if (
+        status === 429 ||
+        errBody.includes("rate_limit") ||
+        response === null
+      ) {
+        console.warn(
+          "[PartnerRecommender] 🔴 ALL MISTRAL MODELS RATE LIMITED — falling back to local heuristic." +
+            " Models tried: " +
+            allowedModels.join(" → "),
+        );
 
-        console.warn("═══════════════════════════════════════════");
-        console.warn("GEMINI QUOTA EXCEEDED — partnerRecommender");
-        console.warn("═══════════════════════════════════════════");
-        console.warn(`HTTP Status     : ${status}`);
-        console.warn(`Error Code      : ${parsedErr?.error?.code ?? "unknown"}`);
-        console.warn(`Error Status    : ${parsedErr?.error?.status ?? "unknown"}`);
-        console.warn(`Error Message   : ${parsedErr?.error?.message ?? errBody.slice(0, 300)}`);
-        console.warn(`Model Tried     : ${allowedModels.join(", ")}`);
-        console.warn(`API Key (5 chr) : ${apiKey?.slice(0, 5)}...`);
-        console.warn("→ Falling back to local heuristic scoring.");
-        console.warn("═══════════════════════════════════════════");
-        
-        const fallbackRecs = orgsToEvaluate.map((org) => {
-          let score = 40 + Math.floor(Math.random() * 20);
-          const matchedCaps: string[] = [];
-          
-          org.capabilities.forEach((cap: string) => {
-            const capL = cap.toLowerCase();
-            if ([...criteriaLower].some(cr => capL.includes(cr) || cr.includes(capL) || (cr.length > 3 && capL.includes(cr.slice(0, 4))))) {
-              score += 15;
-              matchedCaps.push(cap);
-            }
-          });
-          
-          score = Math.min(100, score);
-          
-          let reasoning = "";
-          if (score >= 80) reasoning = `Excellent match! They provide ${matchedCaps.join(", ")} which fits the event perfectly. (Auto-generated mock reasoning)`;
-          else if (score >= 50) reasoning = `Good option. They offer ${matchedCaps[0] ?? "general support"} which aligns with your criteria. (Auto-generated mock reasoning)`;
-          else reasoning = "Partial match. They can assist in secondary areas. (Auto-generated mock reasoning)";
-          
-          return {
-            orgId: org._id.toString(),
-            orgName: org.name,
-            orgCategory: org.category,
-            orgCapabilities: org.capabilities,
-            score,
-            matchedCapabilities: matchedCaps,
-            reasoning
-          };
-        }).sort((a, b) => b.score - a.score);
+        const fallbackRecs = orgsToEvaluate
+          .map((org) => {
+            let score = 40 + Math.floor(Math.random() * 20);
+            const matchedCaps: string[] = [];
+
+            org.capabilities.forEach((cap: string) => {
+              const capL = cap.toLowerCase();
+              if (
+                [...criteriaLower].some(
+                  (cr) =>
+                    capL.includes(cr) ||
+                    cr.includes(capL) ||
+                    (cr.length > 3 && capL.includes(cr.slice(0, 4))),
+                )
+              ) {
+                score += 15;
+                matchedCaps.push(cap);
+              }
+            });
+
+            score = Math.min(100, score);
+
+            let reasoning = "";
+            if (score >= 80)
+              reasoning = `Excellent match! They provide ${matchedCaps.join(", ")} which fits the event perfectly. (Auto-generated fallback reasoning)`;
+            else if (score >= 50)
+              reasoning = `Good option. They offer ${matchedCaps[0] ?? "general support"} which aligns with your criteria. (Auto-generated fallback reasoning)`;
+            else
+              reasoning =
+                "Partial match. They can assist in secondary areas. (Auto-generated fallback reasoning)";
+
+            return {
+              orgId: org._id.toString(),
+              orgName: org.name,
+              orgCategory: org.category,
+              orgCapabilities: org.capabilities,
+              score,
+              matchedCapabilities: matchedCaps,
+              reasoning,
+            };
+          })
+          .sort((a, b) => b.score - a.score);
 
         return {
           recommendations: fallbackRecs,
           fromCache: false,
           generatedAt: Date.now(),
-          message: "Note: AI Quota Exceeded (429). These results were generated locally via a fallback algorithm based on your requirements."
+          message:
+            "⚠️ Semua model Mistral AI sedang rate limited. Rekomendasi dibuat dari algoritma lokal berdasarkan kecocokan capabilities.",
         };
       }
 
-      throw new Error(
-        `Gemini API error ${status}: ${errBody.slice(0, 300)}`,
+      console.error(
+        `[PartnerRecommender] ❌ FATAL — All models failed | Last HTTP status: ${status}` +
+          ` | Models tried: ${allowedModels.join(" → ")}` +
+          ` | Last error: ${errBody.slice(0, 200)}`,
       );
+      throw new Error(`Mistral API error ${status}: ${errBody.slice(0, 300)}`);
     }
 
-    const geminiResult: any = await response.json();
+    // ─── 7. Parse AI output ───────────────────────────────────────────
+    const mistralResult: any = await response.json();
     const rawText: string =
-      geminiResult?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      mistralResult?.choices?.[0]?.message?.content ?? "";
 
-    // ─── 5. Parse AI output ───────────────────────────────────────────
+    console.log(
+      `[PartnerRecommender] 📊 Tokens used — prompt: ${mistralResult?.usage?.prompt_tokens ?? "?"},` +
+        ` completion: ${mistralResult?.usage?.completion_tokens ?? "?"},` +
+        ` total: ${mistralResult?.usage?.total_tokens ?? "?"} | model: ${activeModel}`,
+    );
+
     let parsed: { recommendations: any[] };
     try {
       parsed = JSON.parse(rawText);
     } catch {
       throw new Error(
-        "Failed to parse Gemini response as JSON. Raw output: " +
+        `[PartnerRecommender] Failed to parse Mistral response as JSON (model: ${activeModel}). Raw output: ` +
           rawText.slice(0, 300),
       );
     }
 
     if (!Array.isArray(parsed.recommendations)) {
-      throw new Error("Gemini returned unexpected shape — missing recommendations array.");
+      throw new Error(
+        `[PartnerRecommender] Mistral (${activeModel}) returned unexpected shape — missing recommendations array.`,
+      );
     }
 
-    // ─── 6. Act: map indices → real org data ──────────────────────────
+    // ─── 8. Act: map indices → real org data ──────────────────────────
     const recommendations = parsed.recommendations
       .map((rec: any) => {
         const idx = (rec.orgIndex ?? 1) - 1;
         const org = orgsToEvaluate[idx];
         if (!org) return null;
         return {
-          orgId: org._id.toString(), // Convert Id to string to match return type
+          orgId: org._id.toString(),
           orgName: org.name,
           orgCategory: org.category,
           orgCapabilities: org.capabilities,
@@ -402,7 +456,7 @@ Rules:
       // Ensure sorted by score descending
       .sort((a: any, b: any) => b.score - a.score);
 
-    // ─── 7. Cache result ──────────────────────────────────────────────
+    // ─── 9. Cache result ──────────────────────────────────────────────
     await ctx.runMutation(
       internal.ai.partnerRecommender.saveRecommendationCache,
       {

@@ -8,7 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Animated, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useDragContext } from "./DragContext";
 import { KanbanTaskCard } from "./KanbanTaskCard";
 
@@ -44,18 +44,30 @@ const statusConfig = {
     iconColor: Colors.INFO,
     label: "To Do",
     color: Colors.INFO,
+    emptyIcon: "clipboard-outline" as const,
+    emptyTitle: "No tasks yet",
+    emptyHint: "Tap + above to add a task",
+    accentColor: Colors.INFO,
   },
   IN_PROGRESS: {
     icon: "time-outline" as const,
     iconColor: Colors.WARNING,
     label: "In Progress",
     color: Colors.WARNING,
+    emptyIcon: "play-circle-outline" as const,
+    emptyTitle: "Nothing in progress",
+    emptyHint: "Hold & drag a To Do card to the right",
+    accentColor: Colors.WARNING,
   },
   DONE: {
     icon: "checkmark-circle-outline" as const,
     iconColor: Colors.SUCCESS,
     label: "Done",
     color: Colors.SUCCESS,
+    emptyIcon: "checkmark-done-circle-outline" as const,
+    emptyTitle: "No completed tasks",
+    emptyHint: "Hold & drag an In Progress card to the right",
+    accentColor: Colors.SUCCESS,
   },
 };
 
@@ -82,24 +94,23 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     dragTranslationY,
   } = useDragContext();
 
+  // Animated glow for drop zone
+  const dropGlow = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     registerColumnRef(status, listRef);
   }, [status, registerColumnRef]);
 
-  // ── Local task order ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (isDraggingTask) {
+      Animated.timing(dropGlow, { toValue: 1, duration: 200, useNativeDriver: false }).start();
+    } else {
+      Animated.timing(dropGlow, { toValue: 0, duration: 200, useNativeDriver: false }).start();
+    }
+  }, [isDraggingTask]);
+
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
 
-  /**
-   * KEY FIX — reorder not persisting:
-   *
-   * Old code synced localTasks from `tasks` whenever `isDraggingTask` changed.
-   * When drag ended → isDraggingTask = false → effect ran → localTasks was
-   * reset to server order, losing the reorder the user just did.
-   *
-   * New logic: sync from server only when the SET of task IDs changes
-   * (tasks added or removed). If the IDs are the same, keep local order
-   * but update task data (title, priority, etc.) from the server.
-   */
   useEffect(() => {
     setLocalTasks((prev) => {
       const serverMap = new Map(tasks.map((t) => [t._id, t]));
@@ -111,32 +122,27 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
         [...serverIds].every((id) => localIds.has(id));
 
       if (sameIds) {
-        // Same tasks — preserve local order, but refresh task data
-        // (e.g., title or priority changed on the server)
         return prev.map((t) => serverMap.get(t._id) ?? t);
       }
 
-      // Tasks were added or removed — reset to server order
       return tasks;
     });
   }, [tasks]);
 
-  // ── Live drop indicator during drag ───────────────────────────────────────
   const insertIndex = useMemo<number | null>(() => {
     if (!isDraggingTask || !draggedTaskId) return null;
 
     const sourceIdx = localTasks.findIndex((t) => t._id === draggedTaskId);
-    if (sourceIdx === -1) return null; // card is from a different column
+    if (sourceIdx === -1) return null;
 
     const delta = Math.round(dragTranslationY / CARD_HEIGHT);
     const target = Math.max(
       0,
       Math.min(localTasks.length - 1, sourceIdx + delta)
     );
-    return target === sourceIdx ? null : target; // hide if no change
+    return target === sourceIdx ? null : target;
   }, [isDraggingTask, draggedTaskId, dragTranslationY, localTasks]);
 
-  // ── Apply reorder on drop ─────────────────────────────────────────────────
   const handleReorder = useCallback((taskId: string, newIndex: number) => {
     setLocalTasks((prev) => {
       const oldIndex = prev.findIndex((t) => t._id === taskId);
@@ -148,12 +154,27 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     });
   }, []);
 
+  const borderColor = dropGlow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [Colors.BORDER, config.accentColor + "80"],
+  });
+
+  const bgColor = dropGlow.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["rgba(15, 23, 42, 0.6)", config.accentColor + "10"],
+  });
+
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { borderColor, backgroundColor: bgColor }]}>
+      {/* Accent bar at top */}
+      <View style={[styles.accentBar, { backgroundColor: config.accentColor }]} />
+
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Ionicons name={config.icon} size={18} color={config.iconColor} />
+          <View style={[styles.iconWrap, { backgroundColor: config.accentColor + "20" }]}>
+            <Ionicons name={config.icon} size={16} color={config.iconColor} />
+          </View>
           <View style={styles.headerText}>
             <Text style={styles.headerLabel}>{config.label}</Text>
             <Badge
@@ -179,11 +200,21 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
         )}
       </View>
 
-      {/* Task list */}
+      {/* Task list or empty state */}
       {localTasks.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="layers-outline" size={32} color={Colors.BORDER} />
-          <Text style={styles.emptyText}>No tasks</Text>
+          <View style={[styles.emptyIconWrap, { backgroundColor: config.accentColor + "15" }]}>
+            <Ionicons name={config.emptyIcon} size={28} color={config.accentColor + "80"} />
+          </View>
+          <Text style={styles.emptyTitle}>{config.emptyTitle}</Text>
+          <Text style={styles.emptyHint}>{config.emptyHint}</Text>
+
+          {isAddVisible && (
+            <TouchableOpacity style={styles.emptyAddBtn} onPress={onAddTask}>
+              <Ionicons name="add-circle-outline" size={16} color={Colors.PRIMARY} />
+              <Text style={styles.emptyAddText}>Add Task</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <FlatList
@@ -196,7 +227,6 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           scrollIndicatorInsets={{ right: -4 }}
           renderItem={({ item, index }) => (
             <>
-              {/* Drop indicator: shown above the target card while dragging */}
               {insertIndex !== null && index === insertIndex && (
                 <View style={styles.dropIndicator}>
                   <View style={styles.dropIndicatorDot} />
@@ -222,25 +252,34 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           )}
         />
       )}
-    </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     width: 320,
-    backgroundColor: "rgba(15, 23, 42, 0.6)",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.BORDER,
     padding: 14,
     marginHorizontal: 8,
     height: "100%",
+    overflow: "hidden",
+  },
+  accentBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginTop: 6,
     marginBottom: 12,
     paddingBottom: 10,
     borderBottomWidth: 1,
@@ -251,6 +290,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     flex: 1,
+  },
+  iconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerText: {
     flexDirection: "row",
@@ -276,15 +322,47 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   emptyState: {
-    paddingVertical: 40,
+    paddingVertical: 32,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 10,
   },
-  emptyText: {
-    fontSize: 13,
+  emptyIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  emptyTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.TEXT_PRIMARY,
+    textAlign: "center",
+  },
+  emptyHint: {
+    fontSize: 12,
     color: Colors.TEXT_MUTED,
+    textAlign: "center",
     fontWeight: "500",
+  },
+  emptyAddBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.PRIMARY + "60",
+    backgroundColor: Colors.PRIMARY + "10",
+  },
+  emptyAddText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.PRIMARY,
   },
   dropIndicator: {
     flexDirection: "row",

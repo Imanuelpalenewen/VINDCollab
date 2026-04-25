@@ -14,11 +14,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AnalyticsInfoCard } from "@/components/charts/AnalyticsInfoCard";
+import { AnalyticsModal } from "@/components/charts/AnalyticsModal";
 import { CircularProgress } from "@/components/charts/CircularProgress";
-import { GaugeChart } from "@/components/charts/GaugeChart";
-import { BarChart } from "@/components/charts/BarChart";
-import { LineChart } from "@/components/charts/LineChart";
 import { HorizontalProgressBar } from "@/components/charts/HorizontalProgressBar";
+import { InteractiveBarChart } from "@/components/charts/InteractiveBarChart";
+import { InteractiveGaugeChart } from "@/components/charts/InteractiveGaugeChart";
+import { InteractiveLineChart } from "@/components/charts/InteractiveLineChart";
 import { Colors } from "@/constants/Colors";
 import { api } from "@/convex/_generated/api";
 
@@ -29,23 +31,112 @@ interface Event {
   status: string;
 }
 
+const TIME_RANGES = [
+  { key: "7d", label: "7 Days" },
+  { key: "14d", label: "14 Days" },
+  { key: "30d", label: "30 Days" },
+  { key: "all", label: "All Time" },
+] as const;
+
+// ─── Section Header component ─────────────────────────────────────────────────
+const SectionHeader = ({
+  icon,
+  iconColor,
+  title,
+  subtitle,
+  badge,
+}: {
+  icon: string;
+  iconColor: string;
+  title: string;
+  subtitle: string;
+  badge?: string;
+}) => (
+  <View style={sh.wrapper}>
+    <View style={[sh.iconBox, { backgroundColor: `${iconColor}18` }]}>
+      <Ionicons name={icon as any} size={16} color={iconColor} />
+    </View>
+    <View style={sh.text}>
+      <View style={sh.titleRow}>
+        <Text style={sh.title}>{title}</Text>
+        {badge && (
+          <View style={sh.badge}>
+            <Text style={sh.badgeText}>{badge}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={sh.subtitle}>{subtitle}</Text>
+    </View>
+  </View>
+);
+
+const sh = StyleSheet.create({
+  wrapper: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  iconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  text: { flex: 1, gap: 2 },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  title: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "rgba(255,255,255,0.9)",
+  },
+  badge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    backgroundColor: "rgba(59,130,246,0.2)",
+    borderRadius: 6,
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: Colors.PRIMARY,
+    letterSpacing: 0.3,
+  },
+  subtitle: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.38)",
+    lineHeight: 15,
+  },
+});
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function StatsScreen() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTimeRange, setSelectedTimeRange] = useState<"7d" | "14d" | "30d" | "all">("30d");
 
-  const myEvents = (useQuery(api.events.listMyInvolvedEvents) ?? []).filter(
-    Boolean
-  ) as Event[];
+  const [riskModalVisible, setRiskModalVisible] = useState(false);
+  const [velocityModalVisible, setVelocityModalVisible] = useState(false);
+  const [completionModalVisible, setCompletionModalVisible] = useState(false);
+  const [selectedBarData, setSelectedBarData] = useState<any>(null);
+  const [selectedLineData, setSelectedLineData] = useState<any>(null);
+
+  const myEvents = (useQuery(api.events.listMyInvolvedEvents) ?? []).filter(Boolean) as Event[];
   const myOrg = useQuery(api.organizations.getMyOrg);
 
   const report = useQuery(
     api.ai.progressMonitor.getProgressReport,
-    selectedEventId ? { eventId: selectedEventId as any, timeRange: selectedTimeRange } : "skip"
+    selectedEventId
+      ? { eventId: selectedEventId as any, timeRange: selectedTimeRange }
+      : "skip"
   );
 
   const refreshMutation = useMutation(api.ai.progressMonitor.refreshProgressAnalysis);
-  const feedbackMutation = useMutation(api.ai.progressMonitor.recordAlertFeedback);
 
   const selectedEvent = myEvents.find((e) => e._id === selectedEventId);
   const isHost = !!(selectedEvent && myOrg && selectedEvent.hostOrgId === myOrg._id);
@@ -62,40 +153,25 @@ export default function StatsScreen() {
     }
   };
 
-  const handleAlertFeedback = async (
-    alertId: string,
-    action: "ACKNOWLEDGED" | "DISMISSED"
-  ) => {
-    if (!report) return;
-    await feedbackMutation({
-      progressReportId: report._id as any,
-      alertId,
-      action,
-    });
-  };
-
-  const formatDate = (ts?: number) => {
-    if (!ts) return "N/A";
-    return new Date(ts).toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
   return (
     <SafeAreaView style={s.flex} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.BG_DARK} />
       <View style={s.container}>
-        {/* Header */}
+
+        {/* ── Header ── */}
         <View style={s.header}>
-          <Text style={s.title}>Analytics</Text>
-          <Ionicons name="stats-chart" size={24} color={Colors.PRIMARY} />
+          <View>
+            <Text style={s.title}>Analytics</Text>
+            <Text style={s.subtitle}>Performance & Progress Tracking</Text>
+          </View>
+          <View style={s.headerIcon}>
+            <Ionicons name="stats-chart" size={20} color={Colors.PRIMARY} />
+          </View>
         </View>
 
-        {/* Event Selector */}
+        {/* ── Event Selector ── */}
         <View style={s.selectorContainer}>
-          <Text style={s.selectorLabel}>Select Event</Text>
+          <Text style={s.selectorLabel}>Select Event to Analyze</Text>
           <FlatList
             horizontal
             data={myEvents}
@@ -118,24 +194,31 @@ export default function StatsScreen() {
           />
         </View>
 
-        {/* Content */}
+        {/* ── Empty / Loading / Content ── */}
         {!selectedEventId ? (
           <View style={s.emptyContainer}>
-            <Ionicons name="stats-chart-outline" size={48} color={Colors.BORDER} />
-            <Text style={s.emptyTitle}>Pilih event untuk melihat analytics</Text>
+            <View style={s.emptyIconWrap}>
+              <Ionicons name="bar-chart-outline" size={40} color="rgba(255,255,255,0.15)" />
+            </View>
+            <Text style={s.emptyTitle}>Select an Event</Text>
             <Text style={s.emptyText}>
-              Analisis progress, risk, dan performance team
+              Choose an event above to see detailed analytics — completion rate, velocity, risk assessment, and team performance.
             </Text>
           </View>
         ) : report === undefined ? (
           <View style={s.emptyContainer}>
             <ActivityIndicator size="large" color={Colors.PRIMARY} />
+            <Text style={s.loadingText}>Loading analytics…</Text>
           </View>
         ) : report === null ? (
           <View style={s.emptyContainer}>
-            <Ionicons name="analytics-outline" size={48} color={Colors.BORDER} />
-            <Text style={s.emptyTitle}>Belum ada analisis</Text>
-            <Text style={s.emptyText}>Generate analisis AI untuk melihat data</Text>
+            <View style={s.emptyIconWrap}>
+              <Ionicons name="analytics-outline" size={40} color="rgba(255,255,255,0.15)" />
+            </View>
+            <Text style={s.emptyTitle}>No Analysis Yet</Text>
+            <Text style={s.emptyText}>
+              Generate an AI analysis to see task velocity, risk score, team performance, and completion forecasts.
+            </Text>
             {isHost && (
               <TouchableOpacity
                 style={s.generateBtn}
@@ -147,7 +230,7 @@ export default function StatsScreen() {
                 ) : (
                   <View style={s.generateBtnInner}>
                     <Ionicons name="sparkles" size={16} color="#fff" />
-                    <Text style={s.generateBtnText}>Generate Analysis</Text>
+                    <Text style={s.generateBtnText}>Generate AI Analysis</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -159,9 +242,24 @@ export default function StatsScreen() {
             contentContainerStyle={s.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Completion Circle */}
-            <View style={s.section}>
-              <View style={s.circleContainer}>
+            {/* ── How to use tip ── */}
+            <View style={s.tipBanner}>
+              <Ionicons name="bulb-outline" size={14} color="#F59E0B" />
+              <Text style={s.tipText}>
+                <Text style={s.tipBold}>How to use: </Text>
+                Tap any chart or card to see detailed data. Use the time filter to compare different periods.
+              </Text>
+            </View>
+
+            {/* ── Overall Completion ── */}
+            <View style={s.card}>
+              <SectionHeader
+                icon="checkmark-done-circle"
+                iconColor="#10B981"
+                title="Overall Completion"
+                subtitle="Percentage of all tasks completed across the event"
+              />
+              <View style={s.completionWrapper}>
                 <CircularProgress
                   percentage={report.completionRate}
                   size={200}
@@ -171,159 +269,243 @@ export default function StatsScreen() {
               </View>
             </View>
 
-            {/* Time Filters (7d, 14d, 30d, All) */}
-            <View style={s.timeFilterWrapper}>
-              <Text style={s.timeFilterLabel}>
-                {selectedTimeRange === "7d" && "Last 7 Days"}
-                {selectedTimeRange === "14d" && "Last 14 Days"}
-                {selectedTimeRange === "30d" && "Last 30 Days"}
-                {selectedTimeRange === "all" && "All Time"}
+            {/* ── Time Range Filter ── */}
+            <View style={s.filterCard}>
+              <View style={s.filterHeaderRow}>
+                <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.4)" />
+                <Text style={s.filterTitle}>Time Range</Text>
+                <Text style={s.filterActive}>
+                  {TIME_RANGES.find((r) => r.key === selectedTimeRange)?.label}
+                </Text>
+              </View>
+              <Text style={s.filterHint}>
+                Charts below will update based on the selected range
               </Text>
-              <View style={s.timeFilterContainer}>
-                {["7d", "14d", "30d", "all"].map((filter) => (
+              <View style={s.filterRow}>
+                {TIME_RANGES.map((range) => (
                   <TouchableOpacity
-                    key={filter}
+                    key={range.key}
                     style={[
-                      s.timeFilter,
-                      selectedTimeRange === filter && s.timeFilterActive,
+                      s.filterBtn,
+                      selectedTimeRange === range.key && s.filterBtnActive,
                     ]}
-                    onPress={() => setSelectedTimeRange(filter as any)}
+                    onPress={() => setSelectedTimeRange(range.key)}
                     activeOpacity={0.7}
                   >
                     <Text
                       style={[
-                        s.timeFilterText,
-                        selectedTimeRange === filter && s.timeFilterTextActive,
+                        s.filterBtnText,
+                        selectedTimeRange === range.key && s.filterBtnTextActive,
                       ]}
                     >
-                      {filter === "all" ? "All" : filter}
+                      {range.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
 
-            {/* Risk Score Card */}
-            <View style={[s.card, s.section]}>
-              <View style={s.cardHeader}>
-                <Text style={s.cardTitle}>Risk Score</Text>
-              </View>
-              <View style={s.riskScoreContainer}>
-                <GaugeChart
+            {/* ── Risk Assessment ── */}
+            <View style={s.card}>
+              <SectionHeader
+                icon="shield-half-outline"
+                iconColor="#F59E0B"
+                title="Risk Assessment"
+                subtitle="Calculated from team velocity, blocked tasks, and milestone progress. Tap for full breakdown."
+              />
+              <TouchableOpacity
+                onPress={() => setRiskModalVisible(true)}
+                activeOpacity={0.85}
+              >
+                <InteractiveGaugeChart
                   value={report.riskScore}
                   maxValue={100}
-                  label="/100"
+                  label="RISK SCORE"
                   riskLevel={report.riskLevel as "GREEN" | "YELLOW" | "RED"}
+                  description={
+                    report.riskLevel === "GREEN"
+                      ? "Project is running smoothly with no critical blockers."
+                      : report.riskLevel === "YELLOW"
+                      ? "Some teams need velocity improvement — moderate risk."
+                      : "Critical issues require immediate attention."
+                  }
+                  recommendations={
+                    report.riskLevel === "GREEN"
+                      ? ["Maintain current pace", "Monitor velocity weekly"]
+                      : report.riskLevel === "YELLOW"
+                      ? [
+                          "Boost velocity in lagging teams",
+                          "Identify and remove blockers",
+                          "Reallocate resources if needed",
+                        ]
+                      : [
+                          "Immediately address blocked tasks",
+                          "Improve cross-team communication",
+                          "Consider timeline adjustment",
+                        ]
+                  }
+                  onPress={() => setRiskModalVisible(true)}
                 />
-                <View style={s.riskDescription}>
-                  <Text style={s.riskDescTitle}>
-                    {report.riskLevel === "GREEN"
-                      ? "Low Risk"
-                      : report.riskLevel === "YELLOW"
-                      ? "Moderate Risk"
-                      : "High Risk"}
-                  </Text>
-                  <Text style={s.riskDescText}>
-                    {report.riskLevel === "GREEN"
-                      ? "Project is on track"
-                      : report.riskLevel === "YELLOW"
-                      ? "Velocity improvements needed in 2 teams"
-                      : "Critical issues detected"}
-                  </Text>
-                </View>
-              </View>
+              </TouchableOpacity>
             </View>
 
-            {/* Projected Completion */}
+            {/* ── Projected Completion ── */}
             {report.predictedCompletionDate && (
-              <View style={[s.card, s.section]}>
-                <View style={s.alertBox}>
-                  <Ionicons name="flag" size={20} color={Colors.SUCCESS} />
-                  <View style={s.alertContent}>
-                    <Text style={s.alertTitle}>
-                      Projected: {Math.ceil((report.predictedCompletionDate - Date.now()) / (1000 * 60 * 60 * 24))} days late
-                    </Text>
-                    <Text style={s.alertDesc}>
-                      Based on current velocity. Confidence: 78%
-                    </Text>
-                  </View>
-                </View>
+              <View style={s.card}>
+                <SectionHeader
+                  icon="flag-outline"
+                  iconColor={Colors.PRIMARY}
+                  title="Projected Completion"
+                  subtitle="Estimated finish date based on current team velocity"
+                />
+                <AnalyticsInfoCard
+                  title="Completion Forecast"
+                  icon="time-outline"
+                  description="Projection calculated from task completion rate over the selected period."
+                  details={[
+                    {
+                      label: "Days Until Finish",
+                      value: Math.max(
+                        0,
+                        Math.ceil(
+                          (report.predictedCompletionDate - Date.now()) /
+                            (1000 * 60 * 60 * 24)
+                        )
+                      ),
+                      unit: "days",
+                    },
+                    {
+                      label: "Forecast Confidence",
+                      value: "78",
+                      unit: "%",
+                    },
+                  ]}
+                  accentColor={Colors.PRIMARY}
+                />
               </View>
             )}
 
-            {/* Task Velocity Chart */}
+            {/* ── Task Velocity ── */}
             {report?.velocityData && (
-              <View style={[s.card, s.section]}>
-                <Text style={s.cardTitle}>Task Velocity (tasks/day)</Text>
-                <View style={s.chartContainer}>
-                  <BarChart data={report.velocityData} maxValue={10} height={200} />
-                </View>
-              </View>
-            )}
-
-            {/* Completion Over Time Chart */}
-            {report?.completionData && (
-              <View style={[s.card, s.section]}>
-                <Text style={s.cardTitle}>Completion Over Time</Text>
-                <View style={s.chartContainer}>
-                  <LineChart
-                    data={report.completionData}
-                    height={200}
+              <View style={s.card}>
+                <SectionHeader
+                  icon="trending-up-outline"
+                  iconColor={Colors.INFO}
+                  title="Daily Task Velocity"
+                  subtitle="Number of tasks completed each day. Higher bars = more productive days. Tap a bar to inspect."
+                />
+                <View style={s.chartBox}>
+                  <InteractiveBarChart
+                    data={report.velocityData.map((v: any) => ({
+                      ...v,
+                      tooltip: `${v.value} tasks completed on ${v.label}`,
+                    }))}
+                    height={240}
+                    yAxisLabel="Tasks / day"
+                    onBarPress={(index, data) => {
+                      setSelectedBarData(data);
+                      setVelocityModalVisible(true);
+                    }}
                   />
                 </View>
               </View>
             )}
 
-            {/* Organization Performance */}
-            {report.blockedOrgResponseTime.length > 0 && (
-              <View style={[s.card, s.section]}>
-                <Text style={s.cardTitle}>Organization Performance</Text>
-                <View style={s.performanceList}>
+            {/* ── Completion Over Time ── */}
+            {report?.completionData && (
+              <View style={s.card}>
+                <SectionHeader
+                  icon="analytics-outline"
+                  iconColor={Colors.INFO}
+                  title="Completion Progress"
+                  subtitle="How overall task completion % has changed over time. A rising line means steady progress. Tap any point to inspect."
+                />
+                <View style={s.chartBox}>
+                  <InteractiveLineChart
+                    data={report.completionData.map((c: any) => ({
+                      ...c,
+                      tooltip: `${c.value}% complete as of ${c.label}`,
+                    }))}
+                    height={240}
+                    yAxisLabel="Completion"
+                    unit="%"
+                    onDataPointPress={(index, data) => {
+                      setSelectedLineData(data);
+                      setCompletionModalVisible(true);
+                    }}
+                  />
+                </View>
+              </View>
+            )}
+
+            {/* ── Team Performance ── */}
+            {report.blockedOrgResponseTime?.length > 0 && (
+              <View style={s.card}>
+                <SectionHeader
+                  icon="people-outline"
+                  iconColor="#A78BFA"
+                  title="Team Response Time"
+                  subtitle="How fast each team resolves assigned tasks. Shorter response time = more efficient."
+                />
+                <View style={s.teamList}>
                   {report.blockedOrgResponseTime.map((org: any, index: number) => (
-                    <View key={index} style={s.performanceItem}>
-                      <View style={s.orgBadge}>
-                        <Text style={s.orgBadgeText}>
-                          {org.orgName?.substring(0, 2).toUpperCase()}
-                        </Text>
+                    <View key={index} style={s.teamItem}>
+                      <View style={s.teamRow}>
+                        <View style={s.teamAvatar}>
+                          <Text style={s.teamAvatarText}>
+                            {org.orgName?.substring(0, 2).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.teamName}>{org.orgName}</Text>
+                          <HorizontalProgressBar
+                            label=""
+                            value={`Avg ${Math.round(org.avgResponseTime / 3600000)}h response`}
+                            percentage={Math.min(
+                              (org.avgResponseTime / (1000 * 60 * 60 * 24)) * 100,
+                              100
+                            )}
+                            color={org.isUnresponsive ? "#EF4444" : "#10B981"}
+                            showLabel={false}
+                          />
+                        </View>
                       </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.orgName}>{org.orgName}</Text>
-                        <HorizontalProgressBar
-                          label=""
-                          value={`${Math.round(org.avgResponseTime / 3600000)}h`}
-                          percentage={Math.min(
-                            (org.avgResponseTime / (1000 * 60 * 60 * 24)) * 100,
-                            100
-                          )}
-                          color={
-                            org.isUnresponsive ? Colors.ERROR : Colors.SUCCESS
-                          }
-                        />
-                      </View>
+                      {org.isUnresponsive && (
+                        <View style={s.delayedTag}>
+                          <Ionicons name="warning-outline" size={11} color="#EF4444" />
+                          <Text style={s.delayedText}>Delayed — needs follow-up</Text>
+                        </View>
+                      )}
                     </View>
                   ))}
                 </View>
               </View>
             )}
 
-            {/* Milestone Progress */}
-            {report?.milestoneProgress && report.milestoneProgress.length > 0 && (
-              <View style={[s.card, s.section]}>
-                <Text style={s.cardTitle}>Task Progress by Phase</Text>
-                <View style={s.milestoneList}>
-                  {report.milestoneProgress.map((milestone: any, index: number) => (
-                    <View key={index} style={s.milestoneItem}>
+            {/* ── Phase Progress ── */}
+            {report?.milestoneProgress?.length > 0 && (
+              <View style={s.card}>
+                <SectionHeader
+                  icon="layers-outline"
+                  iconColor="#10B981"
+                  title="Phase Progress"
+                  subtitle="Completion percentage for each event phase. All phases must reach 100% for the event to be complete."
+                />
+                <View style={s.phaseList}>
+                  {report.milestoneProgress.map((m: any, i: number) => (
+                    <View key={i} style={s.phaseItem}>
                       <HorizontalProgressBar
-                        label={milestone.name}
+                        label={m.name}
                         value=""
-                        percentage={milestone.progress}
+                        percentage={m.progress}
                         color={
-                          milestone.progress >= 70
-                            ? Colors.SUCCESS
-                            : milestone.progress >= 40
-                            ? Colors.WARNING
-                            : "#EF9A9A"
+                          m.progress >= 70
+                            ? "#10B981"
+                            : m.progress >= 40
+                            ? "#F59E0B"
+                            : "#EF4444"
                         }
+                        showLabel={true}
                       />
                     </View>
                   ))}
@@ -331,71 +513,233 @@ export default function StatsScreen() {
               </View>
             )}
 
-            {/* Stagnant Tasks */}
-            {report?.stagnantTasks && report.stagnantTasks.length > 0 && (
-              <View style={[s.card, s.section]}>
-                <View style={s.sectionHeader}>
-                  <Ionicons name="pause-circle" size={16} color={Colors.WARNING} />
-                  <Text style={s.cardTitle}>Stagnant Tasks ({report.stagnantTasks.length})</Text>
-                </View>
+            {/* ── Stagnant Tasks ── */}
+            {report?.stagnantTasks?.length > 0 && (
+              <View style={s.card}>
+                <SectionHeader
+                  icon="pause-circle-outline"
+                  iconColor="#F87171"
+                  title="Stagnant Tasks"
+                  subtitle="Tasks with no progress for an extended period. These need immediate action to unblock."
+                  badge={`${report.stagnantTasks.length} tasks`}
+                />
                 <View style={s.stagnantList}>
-                  {report.stagnantTasks.slice(0, 5).map((task: any, index: number) => (
-                    <View key={index} style={s.stagnantItem}>
-                      <View>
-                        <Text style={s.taskTitle}>{task.title}</Text>
-                        <Text style={s.taskMeta}>
-                          Stuck for: {Math.round(task.statusSince / (1000 * 60 * 60))}h
+                  {report.stagnantTasks.slice(0, 5).map((task: any, i: number) => (
+                    <View key={i} style={s.stagnantItem}>
+                      <View style={s.stagnantIcon}>
+                        <Ionicons name="alert-circle" size={14} color="#F87171" />
+                      </View>
+                      <View style={s.stagnantBody}>
+                        <Text style={s.stagnantTitle}>{task.title}</Text>
+                        <Text style={s.stagnantMeta}>
+                          Stuck for {Math.round(task.statusSince / (1000 * 60 * 60))}h
+                          {" · "}
+                          {task.assignedOrgName}
                         </Text>
                       </View>
-                      <Text style={s.taskOrg}>{task.assignedOrgName}</Text>
                     </View>
                   ))}
+                  {report.stagnantTasks.length > 5 && (
+                    <Text style={s.stagnantMore}>
+                      +{report.stagnantTasks.length - 5} more stagnant tasks
+                    </Text>
+                  )}
                 </View>
               </View>
             )}
 
-            <View style={{ height: 40 }} />
+            {/* ── Refresh ── */}
+            {isHost && (
+              <View style={s.refreshSection}>
+                <TouchableOpacity
+                  style={s.refreshBtn}
+                  onPress={handleRefresh}
+                  disabled={refreshing}
+                >
+                  {refreshing ? (
+                    <ActivityIndicator size="small" color={Colors.PRIMARY} />
+                  ) : (
+                    <View style={s.refreshBtnInner}>
+                      <Ionicons name="refresh" size={16} color={Colors.PRIMARY} />
+                      <Text style={s.refreshBtnText}>Refresh Analysis</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+                <Text style={s.refreshHint}>
+                  Re-run AI analysis to get the latest data
+                </Text>
+              </View>
+            )}
+
+            <View style={{ height: 48 }} />
           </ScrollView>
         )}
+
+        {/* ── Modals ── */}
+        <AnalyticsModal
+          visible={riskModalVisible}
+          title="Risk Score Breakdown"
+          description="Detailed factors that contribute to the overall project risk"
+          icon="shield-half"
+          accentColor="#F59E0B"
+          data={[
+            {
+              label: "Overall Risk Score",
+              value: report?.riskScore ?? 0,
+              unit: "/ 100",
+              tooltip: "Composite score — lower is better",
+              highlight: true,
+            },
+            {
+              label: "Risk Level",
+              value:
+                report?.riskLevel === "GREEN"
+                  ? "Low Risk"
+                  : report?.riskLevel === "YELLOW"
+                  ? "Moderate Risk"
+                  : "High Risk",
+              tooltip: "Classification based on the score range",
+            },
+            {
+              label: "Stagnant Tasks",
+              value: report?.stagnantTasks?.length ?? 0,
+              unit: "tasks",
+              tooltip: "Tasks with no activity for an extended time",
+            },
+            {
+              label: "Delayed Teams",
+              value:
+                report?.blockedOrgResponseTime?.filter(
+                  (o: any) => o.isUnresponsive
+                ).length ?? 0,
+              unit: "teams",
+              tooltip: "Teams with slower-than-expected task response",
+            },
+          ]}
+          onClose={() => setRiskModalVisible(false)}
+        />
+
+        <AnalyticsModal
+          visible={velocityModalVisible && !!selectedBarData}
+          title="Velocity Detail"
+          description="Task completion data for the selected day"
+          icon="trending-up"
+          accentColor={Colors.INFO}
+          data={[
+            {
+              label: "Date",
+              value: selectedBarData?.label ?? "—",
+              tooltip: "The date of this data point",
+            },
+            {
+              label: "Tasks Completed",
+              value: selectedBarData?.value ?? 0,
+              unit: "tasks",
+              tooltip: "Number of tasks marked done on this day",
+              highlight: true,
+            },
+            {
+              label: "Productivity Level",
+              value:
+                (selectedBarData?.value ?? 0) >= 7
+                  ? "High"
+                  : (selectedBarData?.value ?? 0) >= 4
+                  ? "Medium"
+                  : "Low",
+              tooltip: "Based on daily completion count",
+            },
+          ]}
+          onClose={() => {
+            setVelocityModalVisible(false);
+            setSelectedBarData(null);
+          }}
+        />
+
+        <AnalyticsModal
+          visible={completionModalVisible && !!selectedLineData}
+          title="Completion Detail"
+          description="Completion progress for the selected date"
+          icon="analytics"
+          accentColor={Colors.INFO}
+          data={[
+            {
+              label: "Date",
+              value: selectedLineData?.label ?? "—",
+              tooltip: "The date of this data point",
+            },
+            {
+              label: "Completion Rate",
+              value: selectedLineData?.value ?? 0,
+              unit: "%",
+              tooltip: "Percentage of tasks completed by this date",
+              highlight: true,
+            },
+            {
+              label: "Remaining Work",
+              value: (100 - (selectedLineData?.value ?? 0)).toFixed(1),
+              unit: "%",
+              tooltip: "Work still left to complete",
+            },
+          ]}
+          onClose={() => {
+            setCompletionModalVisible(false);
+            setSelectedLineData(null);
+          }}
+        />
       </View>
     </SafeAreaView>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.BG_DARK },
   container: { flex: 1, backgroundColor: Colors.BG_DARK },
 
-  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 16,
+    paddingBottom: 14,
   },
   title: {
     fontSize: 28,
-    fontWeight: "800",
-    color: Colors.TEXT_PRIMARY,
+    fontWeight: "900",
+    color: "rgba(255,255,255,0.95)",
     letterSpacing: -0.5,
   },
+  subtitle: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.35)",
+    marginTop: 3,
+    fontWeight: "600",
+    letterSpacing: 0.2,
+  },
+  headerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(59,130,246,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-  // Event Selector
+  // Event selector
   selectorContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.BORDER,
+    borderBottomColor: "rgba(255,255,255,0.07)",
   },
   selectorLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: Colors.TEXT_MUTED,
+    fontSize: 10,
+    fontWeight: "800",
+    color: "rgba(255,255,255,0.3)",
     textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
+    letterSpacing: 0.8,
+    marginBottom: 10,
   },
   eventList: { gap: 8, paddingRight: 20 },
   pill: {
@@ -403,215 +747,235 @@ const s = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: Colors.BORDER,
-    backgroundColor: Colors.BG_CARD,
+    borderColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.04)",
   },
   pillActive: {
     borderColor: Colors.PRIMARY,
-    backgroundColor: "rgba(59,130,246,0.2)",
+    backgroundColor: "rgba(59,130,246,0.18)",
   },
   pillText: {
     fontSize: 13,
     fontWeight: "600",
-    color: Colors.TEXT_SECONDARY,
+    color: "rgba(255,255,255,0.45)",
   },
-  pillTextActive: { color: Colors.PRIMARY },
+  pillTextActive: { color: Colors.PRIMARY, fontWeight: "700" },
 
-  // Time Filters
-  timeFilterWrapper: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  timeFilterLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: Colors.TEXT_MUTED,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  timeFilterContainer: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  timeFilter: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.BORDER,
-    backgroundColor: "transparent",
-  },
-  timeFilterActive: {
-    borderColor: Colors.PRIMARY,
-    backgroundColor: Colors.PRIMARY,
-  },
-  timeFilterText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: Colors.TEXT_SECONDARY,
-  },
-  timeFilterTextActive: {
-    color: "#fff",
-  },
-
-  // Sections
+  // Scroll
   scrollContent: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 16,
-  },
-  section: {
-    gap: 12,
+    paddingTop: 16,
+    gap: 14,
   },
 
-  // Circular Progress Container
-  circleContainer: {
-    alignItems: "center",
-    paddingVertical: 20,
+  // Tip banner
+  tipBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 12,
+    backgroundColor: "rgba(245,158,11,0.07)",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.15)",
+  },
+  tipText: {
+    flex: 1,
+    fontSize: 11,
+    color: "rgba(255,255,255,0.45)",
+    lineHeight: 16,
+  },
+  tipBold: {
+    fontWeight: "700",
+    color: "#F59E0B",
   },
 
-  // Card
+  // Card wrapper
   card: {
     backgroundColor: Colors.BG_CARD,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.BORDER,
+    borderColor: "rgba(255,255,255,0.07)",
     padding: 16,
-  },
-  cardHeader: {
-    marginBottom: 12,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: Colors.TEXT_PRIMARY,
-  },
-
-  // Risk Score
-  riskScoreContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 20,
-  },
-  riskDescription: {
-    flex: 1,
-    gap: 4,
-  },
-  riskDescTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: Colors.TEXT_PRIMARY,
-  },
-  riskDescText: {
-    fontSize: 12,
-    color: Colors.TEXT_MUTED,
-    lineHeight: 16,
-  },
-
-  // Alert Box
-  alertBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "rgba(16,185,129,0.1)",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(16,185,129,0.3)",
-    padding: 12,
-  },
-  alertContent: {
-    flex: 1,
-    gap: 2,
-  },
-  alertTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: Colors.TEXT_PRIMARY,
-  },
-  alertDesc: {
-    fontSize: 11,
-    color: Colors.TEXT_MUTED,
-  },
-
-  // Charts
-  chartContainer: {
-    paddingVertical: 12,
-  },
-
-  // Organization Performance
-  performanceList: {
-    gap: 12,
-  },
-  performanceItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 8,
-  },
-  orgBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: Colors.PRIMARY,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  orgBadgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  orgName: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: Colors.TEXT_PRIMARY,
-    marginBottom: 6,
-  },
-
-  // Milestones
-  milestoneList: {
     gap: 14,
   },
-  milestoneItem: {
-    paddingVertical: 4,
+
+  // Completion
+  completionWrapper: {
+    alignItems: "center",
+    paddingVertical: 8,
   },
 
-  // Stagnant Tasks
-  sectionHeader: {
+  // Time filter
+  filterCard: {
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    padding: 14,
+    gap: 8,
+  },
+  filterHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginBottom: 12,
+    gap: 6,
   },
-  stagnantList: {
-    gap: 8,
+  filterTitle: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.5)",
   },
-  stagnantItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: "rgba(0,0,0,0.2)",
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.WARNING,
+  filterActive: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: Colors.PRIMARY,
   },
-  taskTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: Colors.TEXT_PRIMARY,
-  },
-  taskMeta: {
+  filterHint: {
     fontSize: 10,
-    color: Colors.TEXT_MUTED,
-    marginTop: 2,
+    color: "rgba(255,255,255,0.25)",
   },
-  taskOrg: {
+  filterRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  filterBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+  },
+  filterBtnActive: {
+    borderColor: Colors.PRIMARY,
+    backgroundColor: Colors.PRIMARY,
+  },
+  filterBtnText: {
     fontSize: 11,
     fontWeight: "700",
-    color: Colors.TEXT_SECONDARY,
+    color: "rgba(255,255,255,0.45)",
+  },
+  filterBtnTextActive: { color: "#fff" },
+
+  // Chart box
+  chartBox: {
+    paddingTop: 4,
+  },
+
+  // Teams
+  teamList: { gap: 12 },
+  teamItem: { gap: 6 },
+  teamRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  teamAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: "rgba(59,130,246,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  teamAvatarText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: Colors.PRIMARY,
+  },
+  teamName: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.8)",
+    marginBottom: 6,
+  },
+  delayedTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    backgroundColor: "rgba(239,68,68,0.1)",
+    borderRadius: 7,
+    alignSelf: "flex-start",
+  },
+  delayedText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#EF4444",
+  },
+
+  // Phases
+  phaseList: { gap: 14 },
+  phaseItem: {},
+
+  // Stagnant
+  stagnantList: { gap: 8 },
+  stagnantItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 12,
+    backgroundColor: "rgba(248,113,113,0.06)",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(248,113,113,0.15)",
+    borderLeftWidth: 3,
+    borderLeftColor: "#F87171",
+  },
+  stagnantIcon: {
+    marginTop: 1,
+  },
+  stagnantBody: { flex: 1 },
+  stagnantTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.85)",
+  },
+  stagnantMeta: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.4)",
+    marginTop: 3,
+  },
+  stagnantMore: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.3)",
+    textAlign: "center",
+    paddingTop: 4,
+    fontStyle: "italic",
+  },
+
+  // Refresh
+  refreshSection: {
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 4,
+  },
+  refreshBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(59,130,246,0.3)",
+    backgroundColor: "rgba(59,130,246,0.08)",
+  },
+  refreshBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  refreshBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.PRIMARY,
+  },
+  refreshHint: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.25)",
   },
 
   // Empty
@@ -620,26 +984,41 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 40,
-    gap: 12,
+    gap: 14,
+  },
+  emptyIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: "700",
-    color: Colors.TEXT_PRIMARY,
+    fontWeight: "800",
+    color: "rgba(255,255,255,0.85)",
     textAlign: "center",
   },
   emptyText: {
     fontSize: 13,
-    color: Colors.TEXT_MUTED,
+    color: "rgba(255,255,255,0.35)",
     textAlign: "center",
-    lineHeight: 18,
+    lineHeight: 19,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.35)",
+    marginTop: 4,
   },
   generateBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 22,
+    paddingVertical: 13,
+    borderRadius: 14,
     backgroundColor: Colors.PRIMARY,
-    marginTop: 8,
+    marginTop: 4,
   },
   generateBtnInner: {
     flexDirection: "row",
@@ -649,6 +1028,6 @@ const s = StyleSheet.create({
   generateBtnText: {
     color: "#fff",
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
   },
 });

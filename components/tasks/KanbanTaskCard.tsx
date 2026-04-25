@@ -5,17 +5,19 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, {
+import ReAnimated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { useDragContext } from "./DragContext";
 
@@ -77,6 +79,35 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isLongPressActive, setIsLongPressActive] = useState(false);
 
+  // Animated pulse for drag handle — draws attention on mount
+  const handlePulse = useRef(new Animated.Value(1)).current;
+  const swipeArrowOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Subtle pulse on drag handle to signal interactivity
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(handlePulse, { toValue: 0.4, duration: 900, useNativeDriver: true }),
+        Animated.timing(handlePulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+
+    // Fade in swipe arrows after a short delay
+    const timeout = setTimeout(() => {
+      Animated.timing(swipeArrowOpacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+    }, 300);
+
+    return () => {
+      pulse.stop();
+      clearTimeout(timeout);
+    };
+  }, []);
+
   const dragContextRef = useRef<ReturnType<typeof useDragContext> | null>(null);
   const autoScrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scrollOffsetRef = useRef(0);
@@ -84,7 +115,6 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   const dragContext = useDragContext();
   dragContextRef.current = dragContext;
 
-  // Use canDrag if provided, otherwise fall back to canInteract
   const isDragEnabled = canDrag !== undefined ? canDrag : canInteract;
 
   useEffect(() => {
@@ -156,8 +186,6 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
       const statuses: ("TODO" | "IN_PROGRESS" | "DONE")[] = ["TODO", "IN_PROGRESS", "DONE"];
       let newStatus: "TODO" | "IN_PROGRESS" | "DONE" | null = null;
 
-      // Swipe RIGHT (positive) = maju status (TO → IN_PROGRESS → DONE)
-      // Swipe LEFT (negative) = mundur status (DONE → IN_PROGRESS → TO)
       if (translationX > SWIPE_THRESHOLD && currentStatusIndex < 2) {
         newStatus = statuses[currentStatusIndex + 1];
       } else if (translationX < -SWIPE_THRESHOLD && currentStatusIndex > 0) {
@@ -175,7 +203,6 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
         }
       }
     } else if (Math.abs(translationY) > 20 && onReorder && canInteract) {
-      // Only allow reordering for users with canInteract permission
       const delta = Math.round(translationY / CARD_HEIGHT);
       if (delta !== 0) {
         const newIndex = Math.max(0, Math.min(totalTasks - 1, taskIndex + delta));
@@ -224,15 +251,18 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
   }));
 
   const isOverdue = task.dueDate ? task.dueDate < Date.now() : false;
-
   const formatDate = (timestamp: number) =>
     new Date(timestamp).toLocaleDateString("id-ID", { month: "short", day: "numeric" });
-
   const currentIdx = statusOrder[task.status];
+
+  const canGoNext = currentIdx < 2;
+  const canGoPrev = currentIdx > 0;
+
+  const statusLabels = ["To Do", "In Progress", "Done"];
 
   return (
     <GestureDetector gesture={panGesture}>
-      <Animated.View style={[styles.container, animatedStyle, isDragging && styles.containerDragging]}>
+      <ReAnimated.View style={[styles.container, animatedStyle, isDragging && styles.containerDragging]}>
         <TouchableOpacity
           style={[
             styles.card,
@@ -241,7 +271,7 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
             isLongPressActive && !isDragging && styles.cardLongPressed,
           ]}
           onPress={onPress}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
           disabled={loading || isDragging}
         >
           {loading && (
@@ -250,7 +280,22 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
             </View>
           )}
 
-          <Text style={styles.title} numberOfLines={2}>{task.title}</Text>
+          {/* Top row: title + drag handle */}
+          <View style={styles.topRow}>
+            <Text style={styles.title} numberOfLines={2}>{task.title}</Text>
+
+            {/* Drag handle — always visible, pulsing on idle */}
+            {isDragEnabled && (
+              <Animated.View style={[styles.dragHandle, { opacity: isDragging ? 1 : handlePulse }]}>
+                <View style={styles.dragDot} />
+                <View style={styles.dragDot} />
+                <View style={styles.dragDot} />
+                <View style={styles.dragDot} />
+                <View style={styles.dragDot} />
+                <View style={styles.dragDot} />
+              </Animated.View>
+            )}
+          </View>
 
           <View style={styles.metaRow}>
             {task.priority && (
@@ -291,22 +336,48 @@ export const KanbanTaskCard: React.FC<KanbanTaskCardProps> = ({
             )}
           </View>
 
-          {/* Swipe hint */}
+          {/* Swipe navigation strip — shows prev/next status labels with arrows */}
           {isDragEnabled && (
-            <View style={styles.hintRow}>
-              {currentIdx < 2 && (
-                <Ionicons name="chevron-forward" size={12} color={Colors.BORDER} />
-              )}
-              <Text style={styles.swipeHint}>
-                {isDragging ? "Drop to reorder" : isLongPressActive ? "Drag now" : "Hold & drag"}
-              </Text>
-              {currentIdx > 0 && (
-                <Ionicons name="chevron-back" size={12} color={Colors.BORDER} />
-              )}
-            </View>
+            <Animated.View style={[styles.swipeStrip, { opacity: swipeArrowOpacity }]}>
+              <View style={styles.swipeLeft}>
+                {canGoPrev ? (
+                  <>
+                    <Ionicons name="chevron-back" size={10} color={Colors.PRIMARY} />
+                    <Text style={styles.swipeLabel} numberOfLines={1}>
+                      {statusLabels[currentIdx - 1]}
+                    </Text>
+                  </>
+                ) : (
+                  <View style={{ width: 60 }} />
+                )}
+              </View>
+
+              <View style={styles.swipeCenter}>
+                {isDragging ? (
+                  <Text style={styles.swipeCenterText}>↕ Release to reorder</Text>
+                ) : isLongPressActive ? (
+                  <Text style={styles.swipeCenterText}>Drag now ↔ or ↕</Text>
+                ) : (
+                  <Text style={styles.swipeCenterText}>Hold & drag to move</Text>
+                )}
+              </View>
+
+              <View style={styles.swipeRight}>
+                {canGoNext ? (
+                  <>
+                    <Text style={styles.swipeLabel} numberOfLines={1}>
+                      {statusLabels[currentIdx + 1]}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={10} color={Colors.PRIMARY} />
+                  </>
+                ) : (
+                  <View style={{ width: 60 }} />
+                )}
+              </View>
+            </Animated.View>
           )}
         </TouchableOpacity>
-      </Animated.View>
+      </ReAnimated.View>
     </GestureDetector>
   );
 };
@@ -326,7 +397,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.BORDER,
     padding: 12,
-    gap: 8,
+    gap: 7,
     position: "relative",
   },
   cardOverdue: {
@@ -356,11 +427,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
   title: {
+    flex: 1,
     fontSize: 14,
     fontWeight: "700",
     color: Colors.TEXT_PRIMARY,
     lineHeight: 18,
+  },
+  // Grip dots (2 cols × 3 rows)
+  dragHandle: {
+    width: 16,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 3,
+    paddingTop: 2,
+    alignSelf: "flex-start",
+  },
+  dragDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: Colors.TEXT_MUTED,
   },
   metaRow: {
     flexDirection: "row",
@@ -396,7 +488,6 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: "row",
     gap: 12,
-    marginTop: 2,
   },
   footerItem: {
     flexDirection: "row",
@@ -412,17 +503,43 @@ const styles = StyleSheet.create({
     color: Colors.ERROR,
     fontWeight: "700",
   },
-  hintRow: {
+  // Swipe navigation strip
+  swipeStrip: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 2,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.05)",
+    paddingTop: 6,
     marginTop: 2,
   },
-  swipeHint: {
+  swipeLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  swipeCenter: {
+    flex: 1,
+    alignItems: "center",
+  },
+  swipeCenterText: {
     fontSize: 9,
-    color: Colors.BORDER,
+    color: Colors.TEXT_MUTED,
     fontWeight: "600",
     textAlign: "center",
+    letterSpacing: 0.3,
+  },
+  swipeRight: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 2,
+  },
+  swipeLabel: {
+    fontSize: 9,
+    color: Colors.PRIMARY,
+    fontWeight: "600",
+    maxWidth: 60,
   },
 });

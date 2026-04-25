@@ -1,5 +1,6 @@
 import { AddTaskModal } from "@/components/tasks/AddTaskModal";
 import { DragProvider, useDragContext } from "@/components/tasks/DragContext";
+import { FeatureTipBanner } from "@/components/tasks/FeatureTipBanner";
 import { KanbanColumn } from "@/components/tasks/KanbanColumn";
 import { TaskDetailBottomSheet } from "@/components/tasks/TaskDetailBottomSheet";
 import TaskEditModal from "@/components/tasks/TaskEditModal";
@@ -30,54 +31,53 @@ interface Event {
 }
 
 export default function TasksScreen() {
-  // Router params
   const { selectedEventId: paramEventId } = useLocalSearchParams<{ selectedEventId: string }>();
 
-  // Queries
   const myEvents = (useQuery(api.events.listMyInvolvedEvents) ?? []).filter(Boolean) as Event[];
   const myOrg = useQuery(api.organizations.getMyOrg);
 
-  // State
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [addTaskVisible, setAddTaskVisible] = useState(false);
   const [editTaskVisible, setEditTaskVisible] = useState(false);
   const [editTaskId, setEditTaskId] = useState<string | null>(null);
   const [editTask, setEditTask] = useState<any>(null);
+  const [showTips, setShowTips] = useState(false);
 
-  // Auto-select event from router params
   useEffect(() => {
     if (paramEventId && !selectedEventId) {
       setSelectedEventId(paramEventId);
     }
   }, [paramEventId]);
 
-  // Get Kanban tasks for selected event
+  // Show tips banner when an event is selected for the first time
+  useEffect(() => {
+    if (selectedEventId) {
+      setShowTips(true);
+    }
+  }, [selectedEventId]);
+
   const kanbanData = useQuery(
     api.tasks.getKanbanByEvent,
     selectedEventId ? ({ eventId: selectedEventId as any }) : "skip"
   );
 
-  // Get partnerships for selected event (to find partner orgs)
   const partnerships = useQuery(
     api.partnerships.getByEvent,
     selectedEventId ? ({ eventId: selectedEventId as any }) : "skip"
   );
 
-  // Mutations
   const moveTaskMutation = useMutation(api.tasks.moveTask);
   const deleteTaskMutation = useMutation(api.tasks.deleteTask);
   const createTaskMutation = useMutation(api.tasks.createManualTask);
   const updateTaskMutation = useMutation(api.tasks.updateTask);
 
-  // Get selected event
   const selectedEvent = selectedEventId
     ? myEvents.find((e: Event) => e._id === selectedEventId)
     : null;
 
   const isHost = !!(selectedEvent && myOrg && selectedEvent.hostOrgId === myOrg._id);
 
-  // Get all tasks across statuses for finding the selected task
   const allTasks =
     kanbanData && selectedEventId
       ? [
@@ -91,23 +91,18 @@ export default function TasksScreen() {
     ? allTasks.find((t) => t._id === selectedTaskId)
     : null;
 
-  // Get partner orgs from partnerships
   const partnerOrgs =
     partnerships?.map((p: any) => ({
       _id: p.partnerOrgId,
       name: p.partnerOrg?.name || "Unknown",
     })) || [];
 
-  // Handlers
   const handleMoveTask = useCallback(
     async (taskId: string, newStatus: "TODO" | "IN_PROGRESS" | "DONE") => {
       try {
         await moveTaskMutation({ taskId: taskId as any, newStatus });
       } catch (error) {
-        Alert.alert(
-          "Error",
-          error instanceof Error ? error.message : "Failed to move task"
-        );
+        Alert.alert("Error", error instanceof Error ? error.message : "Failed to move task");
         throw error;
       }
     },
@@ -119,10 +114,7 @@ export default function TasksScreen() {
       try {
         await deleteTaskMutation({ taskId: taskId as any });
       } catch (error) {
-        Alert.alert(
-          "Error",
-          error instanceof Error ? error.message : "Failed to delete task"
-        );
+        Alert.alert("Error", error instanceof Error ? error.message : "Failed to delete task");
         throw error;
       }
     },
@@ -147,10 +139,7 @@ export default function TasksScreen() {
           assignedOrgId: taskData.assignedOrgId as any,
         } as any);
       } catch (error) {
-        Alert.alert(
-          "Error",
-          error instanceof Error ? error.message : "Failed to create task"
-        );
+        Alert.alert("Error", error instanceof Error ? error.message : "Failed to create task");
         throw error;
       }
     },
@@ -175,10 +164,7 @@ export default function TasksScreen() {
           assignedOrgId: updates.assignedOrgId as any,
         } as any);
       } catch (error) {
-        Alert.alert(
-          "Error",
-          error instanceof Error ? error.message : "Failed to update task"
-        );
+        Alert.alert("Error", error instanceof Error ? error.message : "Failed to update task");
         throw error;
       }
     },
@@ -213,6 +199,8 @@ export default function TasksScreen() {
         setEditTask={setEditTask}
         isHost={isHost}
         myOrg={myOrg}
+        showTips={showTips}
+        setShowTips={setShowTips}
       />
     </DragProvider>
   );
@@ -244,9 +232,13 @@ interface TasksScreenContentProps {
   setEditTask: (task: any) => void;
   isHost: boolean;
   myOrg: any;
+  showTips: boolean;
+  setShowTips: (v: boolean) => void;
 }
 
 function TasksScreenContent(props: TasksScreenContentProps) {
+  const totalTasks = props.allTasks.length;
+
   return (
     <SafeAreaView style={styles.flex} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.BG_DARK} />
@@ -254,13 +246,33 @@ function TasksScreenContent(props: TasksScreenContentProps) {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Tasks</Text>
-          <Ionicons name="checkmark-done-outline" size={24} color={Colors.PRIMARY} />
+          <View>
+            <Text style={styles.title}>Tasks</Text>
+            {props.selectedEvent && (
+              <Text style={styles.eventSubtitle} numberOfLines={1}>
+                {props.selectedEvent.title}
+              </Text>
+            )}
+          </View>
+          <View style={styles.headerRight}>
+            {/* Task count badge */}
+            {totalTasks > 0 && (
+              <View style={styles.taskCountBadge}>
+                <Text style={styles.taskCountText}>{totalTasks}</Text>
+              </View>
+            )}
+            <View style={styles.headerIcon}>
+              <Ionicons name="checkmark-done-outline" size={22} color={Colors.PRIMARY} />
+            </View>
+          </View>
         </View>
 
         {/* Event Selector */}
         <View style={styles.eventSelectorContainer}>
-          <Text style={styles.label}>Select Event</Text>
+          <Text style={styles.label}>
+            <Ionicons name="calendar-outline" size={11} color={Colors.TEXT_MUTED} />
+            {"  "}Select Event
+          </Text>
           <FlatList
             horizontal
             data={props.myEvents}
@@ -268,6 +280,12 @@ function TasksScreenContent(props: TasksScreenContentProps) {
             scrollEnabled={true}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.eventList}
+            ListEmptyComponent={
+              <View style={styles.noEventsPill}>
+                <Ionicons name="alert-circle-outline" size={14} color={Colors.TEXT_MUTED} />
+                <Text style={styles.noEventsText}>No events found</Text>
+              </View>
+            }
             renderItem={({ item: event }: { item: Event }) => (
               <TouchableOpacity
                 style={[
@@ -276,6 +294,9 @@ function TasksScreenContent(props: TasksScreenContentProps) {
                 ]}
                 onPress={() => props.setSelectedEventId(event._id)}
               >
+                {props.selectedEventId === event._id && (
+                  <Ionicons name="checkmark-circle" size={13} color={Colors.PRIMARY} />
+                )}
                 <Text
                   style={[
                     styles.eventPillText,
@@ -290,20 +311,55 @@ function TasksScreenContent(props: TasksScreenContentProps) {
           />
         </View>
 
+        {/* Feature tip banner — shown after event selected */}
+        <FeatureTipBanner
+          visible={props.showTips && !!props.selectedEventId}
+          onDismiss={() => props.setShowTips(false)}
+        />
+
         {/* Content */}
-        {!props.selectedEventId || !props.kanbanData ? (
+        {!props.selectedEventId ? (
+          // No event selected state
           <View style={styles.emptyContainer}>
-            {!props.selectedEventId ? (
-              <>
-                <Ionicons name="calendar-outline" size={48} color={Colors.BORDER} />
-                <Text style={styles.emptyTitle}>Pilih event untuk melihat tasks</Text>
-                <Text style={styles.emptyText}>
-                  Pilih salah satu event di atas untuk melihat kanban board
-                </Text>
-              </>
-            ) : (
-              <ActivityIndicator size="large" color={Colors.PRIMARY} />
-            )}
+            <View style={styles.emptyIllustration}>
+              <View style={styles.emptyCircle}>
+                <Ionicons name="calendar-outline" size={40} color={Colors.PRIMARY + "80"} />
+              </View>
+              {/* Mini kanban preview */}
+              <View style={styles.emptyKanbanPreview}>
+                {["To Do", "In Progress", "Done"].map((col, i) => (
+                  <View key={i} style={styles.emptyKanbanCol}>
+                    <View style={[styles.emptyKanbanHeader, { opacity: 0.4 + i * 0.2 }]} />
+                    {[...Array(3 - i)].map((_, j) => (
+                      <View key={j} style={[styles.emptyKanbanCard, { opacity: 0.2 + j * 0.1 }]} />
+                    ))}
+                  </View>
+                ))}
+              </View>
+            </View>
+            <Text style={styles.emptyTitle}>Select an event to view tasks</Text>
+            <Text style={styles.emptyText}>
+              Manage your team's work with a kanban board.{"\n"}
+              Hold & drag cards to reorder or change status.
+            </Text>
+
+            {/* Mini tips preview */}
+            <View style={styles.emptyTipsRow}>
+              {[
+                { icon: "arrow-forward-circle-outline" as const, text: "Hold & drag → change status" },
+                { icon: "reorder-three-outline" as const, text: "Hold & drag ↕ reorder" },
+              ].map((tip, i) => (
+                <View key={i} style={styles.emptyTipChip}>
+                  <Ionicons name={tip.icon} size={13} color={Colors.PRIMARY} />
+                  <Text style={styles.emptyTipText}>{tip.text}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : !props.kanbanData ? (
+          <View style={styles.emptyContainer}>
+            <ActivityIndicator size="large" color={Colors.PRIMARY} />
+            <Text style={styles.loadingText}>Loading tasks...</Text>
           </View>
         ) : (
           <ScrollView
@@ -329,6 +385,8 @@ function TasksScreenContent(props: TasksScreenContentProps) {
               onTaskPress={(task) => props.setSelectedTaskId(task._id)}
               onTaskStatusChange={props.handleMoveTask}
               onTaskDelete={props.handleDeleteTask}
+              myOrgId={props.myOrg?._id}
+              isHost={props.isHost}
             />
             <KanbanColumn
               status="DONE"
@@ -336,6 +394,8 @@ function TasksScreenContent(props: TasksScreenContentProps) {
               onTaskPress={(task) => props.setSelectedTaskId(task._id)}
               onTaskStatusChange={props.handleMoveTask}
               onTaskDelete={props.handleDeleteTask}
+              myOrgId={props.myOrg?._id}
+              isHost={props.isHost}
             />
           </ScrollView>
         )}
@@ -404,11 +464,11 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 16,
+    paddingBottom: 14,
   },
   title: {
     fontSize: 28,
@@ -416,14 +476,50 @@ const styles = StyleSheet.create({
     color: Colors.TEXT_PRIMARY,
     letterSpacing: -0.5,
   },
+  eventSubtitle: {
+    fontSize: 12,
+    color: Colors.TEXT_MUTED,
+    fontWeight: "500",
+    marginTop: 2,
+    maxWidth: 200,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+  },
+  taskCountBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: Colors.PRIMARY + "20",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.PRIMARY + "40",
+  },
+  taskCountText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.PRIMARY,
+  },
+  headerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "rgba(59, 130, 246, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(59, 130, 246, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   eventSelectorContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.BORDER,
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: Colors.TEXT_MUTED,
     textTransform: "uppercase",
@@ -435,8 +531,11 @@ const styles = StyleSheet.create({
     paddingRight: 20,
   },
   eventPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: Colors.BORDER,
@@ -444,7 +543,7 @@ const styles = StyleSheet.create({
   },
   eventPillActive: {
     borderColor: Colors.PRIMARY,
-    backgroundColor: "rgba(59, 130, 246, 0.2)",
+    backgroundColor: "rgba(59, 130, 246, 0.15)",
   },
   eventPillText: {
     fontSize: 13,
@@ -454,12 +553,24 @@ const styles = StyleSheet.create({
   eventPillTextActive: {
     color: Colors.PRIMARY,
   },
+  noEventsPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  noEventsText: {
+    fontSize: 13,
+    color: Colors.TEXT_MUTED,
+    fontWeight: "500",
+  },
   kanbanContainer: {
     flex: 1,
   },
   kanbanContent: {
     paddingHorizontal: 12,
-    paddingVertical: 16,
+    paddingVertical: 12,
     gap: 8,
     minHeight: "100%",
   },
@@ -467,11 +578,48 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 40,
+    paddingHorizontal: 32,
+    gap: 14,
+  },
+  emptyIllustration: {
+    alignItems: "center",
+    marginBottom: 8,
     gap: 12,
   },
+  emptyCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.PRIMARY + "10",
+    borderWidth: 1,
+    borderColor: Colors.PRIMARY + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  // Mini kanban preview skeleton
+  emptyKanbanPreview: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  emptyKanbanCol: {
+    width: 52,
+    gap: 4,
+  },
+  emptyKanbanHeader: {
+    height: 8,
+    backgroundColor: Colors.TEXT_MUTED,
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  emptyKanbanCard: {
+    height: 20,
+    backgroundColor: Colors.BG_CARD,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: Colors.BORDER,
+  },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
     color: Colors.TEXT_PRIMARY,
     textAlign: "center",
@@ -480,6 +628,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.TEXT_MUTED,
     textAlign: "center",
-    lineHeight: 18,
+    lineHeight: 19,
+  },
+  emptyTipsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 4,
+  },
+  emptyTipChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: Colors.PRIMARY + "10",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.PRIMARY + "25",
+  },
+  emptyTipText: {
+    fontSize: 11,
+    color: Colors.PRIMARY,
+    fontWeight: "600",
+  },
+  loadingText: {
+    fontSize: 13,
+    color: Colors.TEXT_MUTED,
+    fontWeight: "500",
+    marginTop: 8,
   },
 });
