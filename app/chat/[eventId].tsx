@@ -24,7 +24,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 interface ReplyState {
   messageId: Id<"chatMessages">;
   content: string;
-  senderOrgName: string;
+  senderUserName?: string;
+  senderOrgName?: string;
 }
 
 export default function EventChatScreen() {
@@ -122,12 +123,16 @@ export default function EventChatScreen() {
 
   // Build message lookup map for reply previews
   const messageMap = React.useMemo(() => {
-    const map = new Map<string, { content: string; senderOrgName: string }>();
+    const map = new Map<
+      string,
+      { content: string; senderUserName?: string; senderOrgName?: string }
+    >();
     if (messagesPage?.page) {
       for (const msg of messagesPage.page) {
         map.set(msg._id, {
           content: msg.content,
-          senderOrgName: msg.senderOrg?.name ?? "Unknown",
+          senderUserName: msg.senderDisplayName ?? msg.senderUser?.name,
+          senderOrgName: msg.senderOrg?.name,
         });
       }
     }
@@ -146,7 +151,8 @@ export default function EventChatScreen() {
     setReplyTo({
       messageId: msg._id,
       content: msg.content,
-      senderOrgName: msg.senderOrg?.name ?? "Unknown",
+      senderUserName: msg.senderDisplayName ?? msg.senderUser?.name,
+      senderOrgName: msg.senderOrg?.name,
     });
   }, []);
 
@@ -344,7 +350,9 @@ export default function EventChatScreen() {
           <View style={styles.replyPreviewBar}>
             <View style={styles.replyAccent} />
             <View style={styles.replyPreviewContent}>
-              <Text style={styles.replyPreviewName}>{replyTo.senderOrgName}</Text>
+              <Text style={styles.replyPreviewName}>
+                {replyTo.senderUserName ?? replyTo.senderOrgName ?? "Unknown"}
+              </Text>
               <Text style={styles.replyPreviewText} numberOfLines={1}>
                 {replyTo.content}
               </Text>

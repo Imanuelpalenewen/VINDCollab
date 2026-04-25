@@ -311,7 +311,7 @@ IMPORTANT:
     // open-mistral-nemo    → Multilingual 12B, open-weight fallback
     // open-mistral-7b      → Lightweight last-resort fallback
     const allowedModels = [
-      "mistral-small-latest",
+      "-small-latestmistral",
       "open-mistral-nemo",
       "open-mistral-7b",
     ];

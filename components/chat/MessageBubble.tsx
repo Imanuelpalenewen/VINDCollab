@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 interface ReplyPreview {
   content: string;
-  senderOrgName: string;
+  senderUserName?: string;
+  senderOrgName?: string;
 }
 
 interface MessageBubbleProps {
@@ -13,9 +13,14 @@ interface MessageBubbleProps {
     content: string;
     _creationTime: number;
     isEdited: boolean;
-    senderOrgId: string;
+    senderOrgId?: string;
     senderUserId: string;
+    senderDisplayName?: string;
     replyToMessageId?: string | null;
+    senderUser?: {
+      avatarUrl?: string;
+      name: string;
+    } | null;
     senderOrg?: {
       logoUrl?: string;
       name: string;
@@ -32,6 +37,19 @@ export function MessageBubble({ message, isOwnMessage, replyPreview, onLongPress
     minute: '2-digit',
   });
 
+  const senderDisplayName =
+    message.senderDisplayName ??
+    message.senderUser?.name ??
+    message.senderOrg?.name ??
+    'Unknown User';
+  const senderOrgName = message.senderOrg?.name;
+  const replySenderLabel =
+    replyPreview?.senderUserName ?? replyPreview?.senderOrgName ?? 'Unknown';
+  const avatarUri =
+    message.senderUser?.avatarUrl ??
+    message.senderOrg?.logoUrl ??
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(senderDisplayName)}&background=3B82F6&color=fff`;
+
   return (
     <TouchableOpacity
       style={[styles.container, isOwnMessage ? styles.ownContainer : styles.otherContainer]}
@@ -39,15 +57,20 @@ export function MessageBubble({ message, isOwnMessage, replyPreview, onLongPress
       delayLongPress={350}
       activeOpacity={0.85}
     >
-      {!isOwnMessage && message.senderOrg && (
+      {!isOwnMessage && (
         <Image
-          source={{ uri: message.senderOrg.logoUrl || 'https://ui-avatars.com/api/?name=Org&background=3B82F6&color=fff' }}
+          source={{ uri: avatarUri }}
           style={styles.avatar}
         />
       )}
       <View style={[styles.bubble, isOwnMessage ? styles.ownBubble : styles.otherBubble]}>
-        {!isOwnMessage && message.senderOrg && (
-          <Text style={styles.orgName}>{message.senderOrg.name}</Text>
+        {!isOwnMessage && (
+          <View style={styles.senderHeader}>
+            <Text style={styles.senderName}>{senderDisplayName}</Text>
+            {!!senderOrgName && senderOrgName !== senderDisplayName && (
+              <Text style={styles.orgName}>{senderOrgName}</Text>
+            )}
+          </View>
         )}
 
         {/* Reply quote block */}
@@ -56,7 +79,7 @@ export function MessageBubble({ message, isOwnMessage, replyPreview, onLongPress
             <View style={[styles.replyBar, isOwnMessage ? styles.replyBarOwn : styles.replyBarOther]} />
             <View style={styles.replyContent}>
               <Text style={[styles.replyName, isOwnMessage ? styles.replyNameOwn : styles.replyNameOther]}>
-                {replyPreview.senderOrgName}
+                {replySenderLabel}
               </Text>
               <Text
                 style={[styles.replyText, isOwnMessage ? styles.replyTextOwn : styles.replyTextOther]}
@@ -111,11 +134,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#1F2937',
     borderBottomLeftRadius: 4,
   },
+  senderHeader: {
+    marginBottom: 4,
+  },
+  senderName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E5E7EB',
+  },
   orgName: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: '#9CA3AF',
-    marginBottom: 3,
   },
   // Reply quote
   replyQuote: {
