@@ -31,11 +31,11 @@ interface RoomCardProps {
 }
 
 function RoomCard({ room, onAddMember, onRemoveMember, onDeleteRoom }: RoomCardProps) {
-  const isProtected = room.name === "general" || room.name === "announcements";
+  const isProtected = room.name.replace(/^#/, "") === "general" || room.name.replace(/^#/, "") === "announcements";
   
   const getIcon = (): keyof typeof Ionicons.glyphMap => {
-    if (room.name === "general") return "chatbubbles-outline";
-    if (room.name === "announcements") return "megaphone-outline";
+    if (room.name.replace(/^#/, "") === "general") return "chatbubbles-outline";
+    if (room.name.replace(/^#/, "") === "announcements") return "megaphone-outline";
     return "chatbox-ellipses-outline";
   };
 

@@ -74,7 +74,7 @@ export default function RootLayout() {
           <Stack.Screen name="invitations/[id]" options={{ headerShown: false, animation: "slide_from_right" }} />
           <Stack.Screen name="invitations/counter-propose" options={{ headerShown: false, animation: "slide_from_bottom" }} />
           <Stack.Screen name="invitations/inbox" options={{ headerShown: false, animation: "slide_from_right" }} />
-          <Stack.Screen name="chat/[roomId]" options={{ headerShown: false, animation: "slide_from_right" }} />
+          <Stack.Screen name="chat/[eventId]" options={{ headerShown: false, animation: "slide_from_right" }} />
           <Stack.Screen name="rooms" options={{ headerShown: false, animation: "slide_from_right" }} />
         </Stack>
       </ConvexAuthProvider>
