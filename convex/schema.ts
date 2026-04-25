@@ -80,7 +80,7 @@ export default defineSchema({
 
   chatMessages: defineTable({
     roomId: v.id("chatRooms"),
-    senderOrgId: v.id("organizations"),
+    senderOrgId: v.optional(v.id("organizations")),
     senderUserId: v.id("users"),
     content: v.string(),
     attachmentUrl: v.optional(v.string()),
