@@ -80,10 +80,11 @@ export default defineSchema({
 
   chatMessages: defineTable({
     roomId: v.id("chatRooms"),
-    senderOrgId: v.id("organizations"),
+    senderOrgId: v.optional(v.id("organizations")),
     senderUserId: v.id("users"),
     content: v.string(),
     attachmentUrl: v.optional(v.string()),
+    replyToMessageId: v.optional(v.id("chatMessages")),
     isEdited: v.boolean(),
     editedAt: v.optional(v.number()),
   }).index("by_room", ["roomId"]),
@@ -191,4 +192,32 @@ export default defineSchema({
     userId: v.id("users"),
     timestamp: v.number(),
   }).index("by_report", ["progressReportId"]),
+
+  postEventReports: defineTable({
+    eventId: v.id("events"),
+    generatedAt: v.number(),
+    executiveSummary: v.string(),
+    overallScore: v.number(),
+    totalTasks: v.number(),
+    completionRate: v.number(),
+    onTimeRate: v.number(),
+    avgResponseTime: v.number(),
+    lessonsLearned: v.array(v.string()),
+    partnerScores: v.array(v.object({
+      orgId: v.id("organizations"),
+      orgName: v.string(),
+      score: v.number(),
+      tasksCompleted: v.number(),
+      totalTasks: v.number(),
+      avgHours: v.number(),
+    })),
+    recommendations: v.array(v.string()),
+  }).index("by_event", ["eventId"]),
+
+  chatRoomMembers: defineTable({
+    roomId: v.id("chatRooms"),
+    orgId: v.id("organizations"),
+    role: v.union(v.literal("ADMIN"), v.literal("MEMBER"), v.literal("READ_ONLY")),
+    joinedAt: v.number(),
+  }).index("by_room", ["roomId"]).index("by_room_org", ["roomId", "orgId"]),
 });

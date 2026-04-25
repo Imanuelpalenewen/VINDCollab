@@ -346,7 +346,7 @@ export const getMessagesByRoom = query({
     // Fetch org details for each message
     const messagesWithOrg = await Promise.all(
       page.page.map(async (msg) => {
-        const org = await ctx.db.get(msg.senderOrgId);
+        const org = msg.senderOrgId ? await ctx.db.get(msg.senderOrgId) : null;
         return {
           ...msg,
           senderOrg: org,
@@ -486,6 +486,9 @@ export const getRecentMessagesForSmartReply = internalQuery({
       .take(5);
     return await Promise.all(
       messages.reverse().map(async (msg) => {
+        if (!msg.senderOrgId) {
+          return { content: msg.content, senderName: "Unknown" };
+        }
         const org = await ctx.db.get(msg.senderOrgId);
         return { content: msg.content, senderName: org?.name ?? "Unknown" };
       })
@@ -530,6 +533,117 @@ export const getSmartReplies = action({
       return { replies };
     } catch {
       return { replies: [] as string[] };
+    }
+  },
+});
+
+export const getRoomsWithMembers = query({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, args) => {
+    const rooms = await ctx.db
+      .query("chatRooms")
+      .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
+      .collect();
+
+    return await Promise.all(
+      rooms.map(async (room) => {
+        const members = await ctx.db
+          .query("chatRoomMembers")
+          .withIndex("by_room", (q) => q.eq("roomId", room._id))
+          .collect();
+
+        const membersWithOrg = await Promise.all(
+          members.map(async (member) => {
+            const org = await ctx.db.get(member.orgId);
+            return {
+              ...member,
+              orgName: org?.name ?? "Unknown Organization",
+            };
+          })
+        );
+
+        return {
+          ...room,
+          members: membersWithOrg,
+        };
+      })
+    );
+  },
+});
+
+export const addRoomMember = mutation({
+  args: {
+    roomId: v.id("chatRooms"),
+    orgId: v.id("organizations"),
+    role: v.union(v.literal("ADMIN"), v.literal("MEMBER"), v.literal("READ_ONLY")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const user = await ctx.db.get(userId);
+    if (!user?.orgId) throw new Error("No organization found");
+
+    const room = await ctx.db.get(args.roomId);
+    if (!room) throw new Error("Room not found");
+
+    const event = await ctx.db.get(room.eventId);
+    if (!event) throw new Error("Event not found");
+
+    if (event.hostOrgId !== user.orgId) {
+      throw new Error("Only the host organization can manage room members");
+    }
+
+    const existing = await ctx.db
+      .query("chatRoomMembers")
+      .withIndex("by_room_org", (q) =>
+        q.eq("roomId", args.roomId).eq("orgId", args.orgId)
+      )
+      .unique();
+
+    if (!existing) {
+      await ctx.db.insert("chatRoomMembers", {
+        roomId: args.roomId,
+        orgId: args.orgId,
+        role: args.role,
+        joinedAt: Date.now(),
+      });
+    }
+  },
+});
+
+export const removeRoomMember = mutation({
+  args: {
+    roomId: v.id("chatRooms"),
+    orgId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const user = await ctx.db.get(userId);
+    if (!user?.orgId) throw new Error("No organization found");
+
+    const room = await ctx.db.get(args.roomId);
+    if (!room) throw new Error("Room not found");
+
+    const event = await ctx.db.get(room.eventId);
+    if (!event) throw new Error("Event not found");
+
+    if (event.hostOrgId !== user.orgId) {
+      throw new Error("Only the host organization can manage room members");
+    }
+
+    const existing = await ctx.db
+      .query("chatRoomMembers")
+      .withIndex("by_room_org", (q) =>
+        q.eq("roomId", args.roomId).eq("orgId", args.orgId)
+      )
+      .unique();
+
+    if (existing) {
+      if (existing.role === "ADMIN") {
+        throw new Error("Cannot remove an ADMIN member");
+      }
+      await ctx.db.delete(existing._id);
     }
   },
 });
