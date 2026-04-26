@@ -97,11 +97,26 @@ export const getInvitationDetail = query({
 export const getNegotiationHistory = query({
   args: { invitationId: v.id("invitations") },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const history = await ctx.db
       .query("negotiationHistory")
       .withIndex("by_invitation", (q) => q.eq("invitationId", args.invitationId))
       .order("asc")
       .collect();
+
+    // Enrich each entry with org names so the UI never shows raw IDs
+    return await Promise.all(
+      history.map(async (entry) => {
+        const proposedByOrg = await ctx.db.get(entry.proposedBy);
+        const respondedByOrg = entry.respondedBy
+          ? await ctx.db.get(entry.respondedBy)
+          : null;
+        return {
+          ...entry,
+          proposedByName: proposedByOrg?.name ?? entry.proposedBy,
+          respondedByName: respondedByOrg?.name ?? (entry.respondedBy ?? null),
+        };
+      })
+    );
   },
 });
 

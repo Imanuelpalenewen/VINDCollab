@@ -89,7 +89,7 @@ export default function NegotiationHistoryView({ invitationId }: Props) {
             <View style={s.historyContent}>
               <View style={s.proposedBySection}>
                 <Text style={s.proposedByLabel}>Proposed by</Text>
-                <Text style={s.proposerId}>{entry.proposedBy}</Text>
+                <Text style={s.proposerId}>{(entry as any).proposedByName ?? entry.proposedBy}</Text>
               </View>
 
               <View style={s.termsGrid}>
@@ -132,7 +132,7 @@ export default function NegotiationHistoryView({ invitationId }: Props) {
                   />
                   {entry.respondedBy && (
                     <Text style={s.respondedByText}>
-                      by {entry.respondedBy}
+                      by {(entry as any).respondedByName ?? entry.respondedBy}
                     </Text>
                   )}
                 </View>

@@ -281,7 +281,7 @@ export default function MoreScreen() {
             iconColor="#6EE7B7"
             label="Partner Management"
             subtitle="Manage organizations"
-            onPress={() => handleComingSoon("Partner Management")}
+            onPress={() => router.push("/invitations/inbox")}
           />
           <View style={styles.divider} />
           <MenuRow
@@ -290,7 +290,7 @@ export default function MoreScreen() {
             iconColor="#FCD34D"
             label="Notifications"
             subtitle="View all alerts"
-            onPress={() => handleComingSoon("Notifications")}
+            onPress={() => router.push("/notifications")}
           />
           <View style={styles.divider} />
           <MenuRow
