@@ -39,7 +39,7 @@ const TIME_RANGES = [
   { key: "all", label: "All Time" },
 ] as const;
 
-// ─── Section Header component ─────────────────────────────────────────────────
+// Section Header component
 const SectionHeader = ({
   icon,
   iconColor,
@@ -115,7 +115,7 @@ const sh = StyleSheet.create({
   },
 });
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+// Main Screen
 export default function StatsScreen() {
   const { selectedEventId: paramEventId } = useLocalSearchParams<{ selectedEventId: string }>();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(paramEventId ?? null);
@@ -165,7 +165,7 @@ export default function StatsScreen() {
       <StatusBar barStyle="light-content" backgroundColor={Colors.BG_DARK} />
       <View style={s.container}>
 
-        {/* ── Header ── */}
+        {/* Header */}
         <View style={s.header}>
           <View>
             <Text style={s.title}>Analytics</Text>
@@ -176,7 +176,7 @@ export default function StatsScreen() {
           </View>
         </View>
 
-        {/* ── Event Selector ── */}
+        {/* Event Selector */}
         <View style={s.selectorContainer}>
           <Text style={s.selectorLabel}>Select Event to Analyze</Text>
           <FlatList
@@ -201,7 +201,7 @@ export default function StatsScreen() {
           />
         </View>
 
-        {/* ── Empty / Loading / Content ── */}
+        {/* Empty / Loading / Content */}
         {!selectedEventId ? (
           <View style={s.emptyContainer}>
             <View style={s.emptyIconWrap}>
@@ -249,7 +249,7 @@ export default function StatsScreen() {
             contentContainerStyle={s.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* ── How to use tip ── */}
+            {/* How to use tip */}
             <View style={s.tipBanner}>
               <Ionicons name="bulb-outline" size={14} color="#F59E0B" />
               <Text style={s.tipText}>
@@ -258,7 +258,7 @@ export default function StatsScreen() {
               </Text>
             </View>
 
-            {/* ── Overall Completion ── */}
+            {/* Overall Completion */}
             <View style={s.card}>
               <SectionHeader
                 icon="checkmark-done-circle"
@@ -276,7 +276,7 @@ export default function StatsScreen() {
               </View>
             </View>
 
-            {/* ── Time Range Filter ── */}
+            {/* Time Range Filter */}
             <View style={s.filterCard}>
               <View style={s.filterHeaderRow}>
                 <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.4)" />
@@ -312,7 +312,7 @@ export default function StatsScreen() {
               </View>
             </View>
 
-            {/* ── Risk Assessment ── */}
+            {/* Risk Assessment */}
             <View style={s.card}>
               <SectionHeader
                 icon="shield-half-outline"
@@ -356,7 +356,7 @@ export default function StatsScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* ── Projected Completion ── */}
+            {/* Projected Completion */}
             {report.predictedCompletionDate && (
               <View style={s.card}>
                 <SectionHeader
@@ -392,7 +392,7 @@ export default function StatsScreen() {
               </View>
             )}
 
-            {/* ── Task Velocity ── */}
+            {/* Task Velocity */}
             {report?.velocityData && (
               <View style={s.card}>
                 <SectionHeader
@@ -418,7 +418,7 @@ export default function StatsScreen() {
               </View>
             )}
 
-            {/* ── Completion Over Time ── */}
+            {/* Completion Over Time */}
             {report?.completionData && (
               <View style={s.card}>
                 <SectionHeader
@@ -445,7 +445,7 @@ export default function StatsScreen() {
               </View>
             )}
 
-            {/* ── Team Performance ── */}
+            {/* Team Performance */}
             {report.blockedOrgResponseTime?.length > 0 && (
               <View style={s.card}>
                 <SectionHeader
@@ -489,7 +489,7 @@ export default function StatsScreen() {
               </View>
             )}
 
-            {/* ── Phase Progress ── */}
+            {/* Phase Progress */}
             {report?.milestoneProgress?.length > 0 && (
               <View style={s.card}>
                 <SectionHeader
@@ -520,7 +520,7 @@ export default function StatsScreen() {
               </View>
             )}
 
-            {/* ── Stagnant Tasks ── */}
+            {/* Stagnant Tasks */}
             {report?.stagnantTasks?.length > 0 && (
               <View style={s.card}>
                 <SectionHeader
@@ -555,7 +555,7 @@ export default function StatsScreen() {
               </View>
             )}
 
-            {/* ── Refresh ── */}
+            {/* Refresh */}
             {isHost && (
               <View style={s.refreshSection}>
                 <TouchableOpacity
@@ -582,7 +582,7 @@ export default function StatsScreen() {
           </ScrollView>
         )}
 
-        {/* ── Modals ── */}
+        {/* Modals */}
         <AnalyticsModal
           visible={riskModalVisible}
           title="Risk Score Breakdown"
@@ -698,7 +698,7 @@ export default function StatsScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// Styles
 const s = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.BG_DARK },
   container: { flex: 1, backgroundColor: Colors.BG_DARK },

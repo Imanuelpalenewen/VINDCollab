@@ -3,8 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
+// Types
 type EventStatus = "DRAFT" | "OPEN" | "PLANNING" | "EXECUTING" | "COMPLETED";
 
 interface EventCardData {
@@ -26,8 +25,7 @@ interface EventCardProps {
   showOrg?: boolean;
 }
 
-// ── Config ────────────────────────────────────────────────────────────────────
-
+// Config
 const STATUS_CONFIG: Record<EventStatus, { label: string; color: string; bg: string; border: string }> = {
   DRAFT:     { label: "Draft",     color: "#94A3B8",  bg: "rgba(148,163,184,0.1)",  border: "rgba(148,163,184,0.25)" },
   OPEN:      { label: "Open",      color: "#3B82F6",  bg: "rgba(59,130,246,0.1)",   border: "rgba(59,130,246,0.3)"   },
@@ -38,8 +36,7 @@ const STATUS_CONFIG: Record<EventStatus, { label: string; color: string; bg: str
 
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
+// Helpers
 function formatDate(ms: number): string {
   const d = new Date(ms);
   return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
@@ -52,8 +49,7 @@ function isSameDay(a: number, b: number): boolean {
          da.getDate() === db.getDate();
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
+// Component
 export function EventCard({ event, onPress, showOrg = false }: EventCardProps) {
   const cfg = STATUS_CONFIG[event.status];
 
@@ -119,8 +115,7 @@ export function EventCard({ event, onPress, showOrg = false }: EventCardProps) {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
+// Styles
 const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.BG_CARD,

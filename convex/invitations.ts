@@ -4,19 +4,9 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 import { paginationOptsValidator } from "convex/server";
 import { internal } from "./_generated/api";
+import { assertOrgMembership } from "./_helpers";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function assertOrgMembership(ctx: any) {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) throw new Error("Not authenticated");
-  const user = await ctx.db.get(userId);
-  if (!user?.orgId) throw new Error("No organization found");
-  return { userId, user, orgId: user.orgId };
-}
-
-// ── Queries ───────────────────────────────────────────────────────────────────
-
+// Queries
 /**
  * Get all invitations for the current org (incoming + outgoing)
  * Paginated with optional status filter
@@ -115,8 +105,7 @@ export const getNegotiationHistory = query({
   },
 });
 
-// ── Mutations ───────────────────────────────────────────────────────────────
-
+// Mutations
 /**
  * Send an invitation to a partner organization
  */

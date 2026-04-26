@@ -32,12 +32,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/Badge";
 import { Colors } from "@/constants/Colors";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
+// Constants
 const INVITE_VALIDITY_MINUTES = 15;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
+// Helpers
 const AVATAR_PALETTE = ["#3B82F6", "#8B5CF6", "#EF4444", "#10B981", "#F59E0B", "#06B6D4"];
 
 function getInitials(name: string): string {
@@ -59,8 +57,7 @@ function getInviteStatus(createdAt?: number) {
   return { expired: minutesLeft <= 0, minutesLeft: Math.max(0, minutesLeft), expiresAt };
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
+// Sub-components
 interface MenuRowProps {
   icon: keyof typeof Ionicons.glyphMap;
   iconBg: string;
@@ -252,8 +249,7 @@ export default function MoreScreen() {
       ]
     );
 
-  // ── Render ──────────────────────────────────────────────────────────────────
-
+  // Render
   return (
     <SafeAreaView style={styles.flex} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.BG_DARK} />
@@ -293,7 +289,7 @@ export default function MoreScreen() {
           <Ionicons name="chevron-forward" size={18} color={Colors.TEXT_MUTED} style={{ opacity: 0.45 }} />
         </TouchableOpacity>
 
-        {/* ── Stats row ─────────────────────────────────── */}
+        {/* Stats row */}
         <View style={styles.statsRow}>
           {[
             { label: "Events\nHosted", value: stats?.eventCount ?? 0, color: "#93C5FD", bg: "rgba(59,130,246,0.10)" },
@@ -307,7 +303,7 @@ export default function MoreScreen() {
           ))}
         </View>
 
-        {/* ── Capabilities ───────────────────────────────── */}
+        {/* Capabilities */}
         {(org?.capabilities.length ?? 0) > 0 && (
           <>
             <Text style={styles.sectionLabel}>CAPABILITIES</Text>
@@ -324,7 +320,7 @@ export default function MoreScreen() {
           </>
         )}
 
-        {/* ── Invite Code ────────────────────────────────── */}
+        {/* Invite Code */}
         <Text style={styles.sectionLabel}>INVITE CODE</Text>
         <View style={styles.inviteCard}>
           {/* Code display */}
@@ -419,7 +415,7 @@ export default function MoreScreen() {
           <InviteHowItWorks />
         </View>
 
-        {/* ── FEATURES section ──────────────────────────── */}
+        {/* FEATURES section */}
         <Text style={styles.sectionLabel}>FEATURES</Text>
         <View style={styles.menuGroup}>
           <MenuRow
@@ -466,7 +462,7 @@ export default function MoreScreen() {
           />
         </View>
 
-        {/* ── COLLABORATIONS section ────────────────────── */}
+        {/* COLLABORATIONS section */}
         <Text style={styles.sectionLabel}>COLLABORATIONS</Text>
         <View style={styles.menuGroup}>
           <MenuRow
@@ -480,7 +476,7 @@ export default function MoreScreen() {
           />
         </View>
 
-        {/* ── ACCOUNT section ───────────────────────────── */}
+        {/* ACCOUNT section */}
         <Text style={styles.sectionLabel}>ACCOUNT</Text>
         <View style={styles.menuGroup}>
           <MenuRow
@@ -500,8 +496,7 @@ export default function MoreScreen() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
+// Styles
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.BG_DARK },
   container: { paddingHorizontal: 20, paddingTop: 8 },

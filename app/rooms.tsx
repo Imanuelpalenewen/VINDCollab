@@ -21,8 +21,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/Colors";
 import { Badge } from "@/components/ui/Badge";
 
-// ── Components ────────────────────────────────────────────────────────────
-
+// Components
 interface RoomCardProps {
   room: any;
   onAddMember: (roomId: Id<"chatRooms">) => void;
@@ -89,8 +88,7 @@ function RoomCard({ room, onAddMember, onRemoveMember, onDeleteRoom }: RoomCardP
   );
 }
 
-// ── Screen ────────────────────────────────────────────────────────────────
-
+// Screen
 export default function RoomsScreen() {
   const router = useRouter();
   const myEvents = useQuery(api.events.listMyEvents) || [];

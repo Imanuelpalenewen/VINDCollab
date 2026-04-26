@@ -10,8 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/convex/_generated/api";
 import { Colors } from "@/constants/Colors";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
+// Constants
 const TOTAL_STEPS = 4;
 
 const EVENT_TYPES = [
@@ -37,8 +36,7 @@ const MONTHS = ["January","February","March","April","May","June",
                 "July","August","September","October","November","December"];
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
+// Types
 interface EventForm {
   title: string;
   description: string;
@@ -49,8 +47,7 @@ interface EventForm {
   partnerCriteria: string[];
 }
 
-// ── Date Picker ───────────────────────────────────────────────────────────────
-
+// Date Picker
 function DateSpinner({
   label,
   value,
@@ -127,8 +124,7 @@ const ds = StyleSheet.create({
   formatted: { fontSize: 12, color: Colors.TEXT_MUTED, textAlign: "center", marginTop: 10 },
 });
 
-// ── Main Screen ───────────────────────────────────────────────────────────────
-
+// Main Screen
 export default function CreateEventScreen() {
   const router = useRouter();
   const createEventMutation = useMutation(api.events.createEvent);
@@ -151,7 +147,7 @@ export default function CreateEventScreen() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // ── Helpers
+  // Helpers
   const set = <K extends keyof EventForm>(key: K, val: EventForm[K]) =>
     setForm((f) => ({ ...f, [key]: val }));
 
@@ -162,7 +158,7 @@ export default function CreateEventScreen() {
     }));
   };
 
-  // ── Validation per step
+  // Validation per step
   const validate = (): boolean => {
     const e: Record<string, string> = {};
     if (step === 1) {
@@ -191,7 +187,7 @@ export default function CreateEventScreen() {
     setErrors({});
   };
 
-  // ── Submit
+  // Submit
   const handleSubmit = async (publishImmediately: boolean) => {
     if (!validate()) return;
     setSubmitting(true);
@@ -214,7 +210,7 @@ export default function CreateEventScreen() {
     }
   };
 
-  // ── Step titles
+  // Step titles
   const STEP_INFO = [
     { title: "Basic Info",         subtitle: "What is your event about?" },
     { title: "Timeline",           subtitle: "When does your event take place?" },
@@ -222,14 +218,13 @@ export default function CreateEventScreen() {
     { title: "Partner Criteria",   subtitle: "What should partner organizations bring?" },
   ];
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
+  // Render
   return (
     <SafeAreaView style={s.flex} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.BG_DARK} />
       <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
 
-        {/* ── Header ── */}
+        {/* Header */}
         <View style={s.header}>
           <TouchableOpacity style={s.backBtn} onPress={handleBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name={step === 1 ? "close" : "arrow-back"} size={20} color={Colors.TEXT_SECONDARY} />
@@ -241,7 +236,7 @@ export default function CreateEventScreen() {
           <Text style={s.stepCounter}>{step}/{TOTAL_STEPS}</Text>
         </View>
 
-        {/* ── Progress bar ── */}
+        {/* Progress bar */}
         <View style={s.progressTrack}>
           <View style={[s.progressFill, { width: `${(step / TOTAL_STEPS) * 100}%` as any }]} />
         </View>
@@ -393,7 +388,7 @@ export default function CreateEventScreen() {
           <View style={{ height: 16 }} />
         </ScrollView>
 
-        {/* ── Bottom actions ── */}
+        {/* Bottom actions */}
         <View style={s.footer}>
           {step < TOTAL_STEPS ? (
             <TouchableOpacity style={s.nextBtn} onPress={handleNext} activeOpacity={0.85}>
@@ -438,8 +433,7 @@ export default function CreateEventScreen() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
+// Styles
 const s = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.BG_DARK },
   header: {

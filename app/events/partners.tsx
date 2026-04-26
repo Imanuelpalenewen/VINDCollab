@@ -21,8 +21,7 @@ import PartnerRecommendCard, {
   Recommendation,
 } from "@/components/partners/PartnerRecommendCard";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
+// Types
 interface RecommendationResult {
   recommendations: Recommendation[];
   fromCache: boolean;
@@ -30,8 +29,7 @@ interface RecommendationResult {
   message?: string;
 }
 
-// ── Skeleton Loading Component ────────────────────────────────────────────────
-
+// Skeleton Loading Component
 function SkeletonCard({ delay }: { delay: number }) {
   const pulseAnim = useRef(new Animated.Value(0.3)).current;
 
@@ -80,8 +78,7 @@ function SkeletonCard({ delay }: { delay: number }) {
   );
 }
 
-// ── Screen ────────────────────────────────────────────────────────────────────
-
+// Screen
 export default function PartnersRecommendationScreen() {
   const router = useRouter();
   const { eventId } = useLocalSearchParams<{ eventId: string }>();
@@ -158,13 +155,12 @@ export default function PartnersRecommendationScreen() {
     return `${Math.floor(hrs / 24)}d ago`;
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
-
+  // Render
   return (
     <SafeAreaView style={s.flex} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.BG_DARK} />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={s.header}>
         <TouchableOpacity
           style={s.backBtn}
@@ -198,7 +194,7 @@ export default function PartnersRecommendationScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Cache / Fresh indicator ── */}
+      {/* Cache / Fresh indicator */}
       {result && !loading && (
         <View style={s.cacheBar}>
           <View
@@ -235,7 +231,7 @@ export default function PartnersRecommendationScreen() {
         </View>
       )}
 
-      {/* ── Content ── */}
+      {/* Content */}
       {loading ? (
         <View style={s.loadingContainer}>
           {/* AI Processing indicator */}
@@ -257,7 +253,7 @@ export default function PartnersRecommendationScreen() {
           </View>
         </View>
       ) : error ? (
-        /* ── Error state ── */
+        /* Error state */
         <View style={s.stateContainer}>
           <View style={s.stateIcon}>
             <Ionicons
@@ -277,7 +273,7 @@ export default function PartnersRecommendationScreen() {
           </TouchableOpacity>
         </View>
       ) : result && result.recommendations.length === 0 ? (
-        /* ── Empty state ── */
+        /* Empty state */
         <View style={s.stateContainer}>
           <View style={s.stateIcon}>
             <Ionicons
@@ -300,7 +296,7 @@ export default function PartnersRecommendationScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        /* ── Results ── */
+        /* Results */
         <FlatList
           data={result?.recommendations ?? []}
           keyExtractor={(item) => item.orgId}
@@ -341,8 +337,7 @@ export default function PartnersRecommendationScreen() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
+// Styles
 const s = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.BG_DARK },
 
@@ -539,8 +534,7 @@ const s = StyleSheet.create({
   },
 });
 
-// ── Skeleton Styles ───────────────────────────────────────────────────────────
-
+// Skeleton Styles
 const sk = StyleSheet.create({
   card: {
     backgroundColor: Colors.BG_CARD,

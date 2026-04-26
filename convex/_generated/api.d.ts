@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as _helpers from "../_helpers.js";
+import type * as ai__mistralClient from "../ai/_mistralClient.js";
 import type * as ai_partnerRecommender from "../ai/partnerRecommender.js";
 import type * as ai_postEventReport from "../ai/postEventReport.js";
 import type * as ai_progressMonitor from "../ai/progressMonitor.js";
@@ -24,7 +26,6 @@ import type * as partnerships from "../partnerships.js";
 import type * as reports from "../reports.js";
 import type * as seed from "../seed.js";
 import type * as tasks from "../tasks.js";
-import type * as test from "../test.js";
 import type * as users from "../users.js";
 
 import type {
@@ -34,6 +35,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  _helpers: typeof _helpers;
+  "ai/_mistralClient": typeof ai__mistralClient;
   "ai/partnerRecommender": typeof ai_partnerRecommender;
   "ai/postEventReport": typeof ai_postEventReport;
   "ai/progressMonitor": typeof ai_progressMonitor;
@@ -50,7 +53,6 @@ declare const fullApi: ApiFromModules<{
   reports: typeof reports;
   seed: typeof seed;
   tasks: typeof tasks;
-  test: typeof test;
   users: typeof users;
 }>;
 

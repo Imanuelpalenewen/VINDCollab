@@ -61,7 +61,7 @@ export default function HomeScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header ─────────────────────────────────────── */}
+        {/* Header */}
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <Text style={styles.greeting}>Good day 👋</Text>
@@ -97,7 +97,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* ── Quick Stats ─────────────────────────────────── */}
+        {/* Quick Stats */}
         <View style={styles.statsRow}>
           {[
             { label: "Active\nEvents", value: activeEventCount, color: "#93C5FD", bg: "rgba(59,130,246,0.10)" },
@@ -111,7 +111,7 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* ── Analytics Quick Card ────────────────────────── */}
+        {/* Analytics Quick Card */}
         {firstActiveEvent && (
           <TouchableOpacity
             style={styles.analyticsCard}
@@ -185,7 +185,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        {/* ── My Events ───────────────────────────────────── */}
+        {/* My Events */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>My Events</Text>
           <TouchableOpacity
@@ -226,7 +226,7 @@ export default function HomeScreen() {
           ))
         )}
 
-        {/* ── Discover ────────────────────────────────────── */}
+        {/* Discover */}
         {openEvents.length > 0 && (
           <>
             <Text style={[styles.sectionTitle, { marginTop: 24, marginBottom: 12 }]}>
@@ -246,7 +246,7 @@ export default function HomeScreen() {
         <View style={{ height: 90 }} />
       </ScrollView>
 
-      {/* ── FAB ─────────────────────────────────────────── */}
+      {/* FAB */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => router.push("/events/create")}

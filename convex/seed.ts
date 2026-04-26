@@ -106,25 +106,9 @@ export const seedSingleOrg = internalMutation({
       inviteCodeCreatedAt: Date.now(),
     });
 
-    // 2. Create User account (without setting auth password - Convex auth uses separate provider table, 
-    // but the system will link the email automatically when they sign up).
-    // Note: Since this seeds the users table, they still need to "Register" with password
-    // via the frontend so that `@convex-dev/auth` stores their credentials.
-    // However, if they Register with these emails, their Convex Auth account will be created
-    // but we want to make sure the users table maps. To avoid complex auth seeding,
-    // we'll just seed the table so when they login, we might need a custom mapping.
-    
-    // As a workaround, the best way for the user to login with dummy data is to let them 
-    // manually register using the app OR we can just seed the users table now, and when they 
-    // `signIn("password", { email... })` the `@convex-dev/auth` handles storing the password.
-    // Actually, `@convex-dev/auth` handles users automatically on "signUp". 
-    // Instead of messing with Convex Auth internals, we'll just insert the `users` 
-    // and `organizations` records directly. Convex auth might fail to login if the password isn't in its internal tables.
-    // So the EASIEST workaround for seeding auth is to let you register these emails from the app manually,
-    // OR we don't insert to `users` and let you create the org via the app.
-    // WAIT: I can just use a trick. The developer will use these accounts as targets for recommendations!
-    // They don't actually need to LOGIN to these 8 dummy accounts right now. They just need the ORGS to exist.
-    // So we just create the Orgs, and assign a fake user to them, or no user at all!
+    // 2. Create User account
+    // Note: These users exist primarily as AI recommendation targets.
+    // To login as these users, manually Register them in the app using these emails.
 
     await ctx.db.insert("users", {
       email: args.email,
