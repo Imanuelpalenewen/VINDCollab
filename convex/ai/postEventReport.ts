@@ -146,6 +146,14 @@ export const generatePostEventReport = action({
 
     const { event, tasks, partnerOrgs, invitations } = data;
 
+    // Guard: only allow report generation for COMPLETED events.
+    // This prevents premature AI calls and meaningless metrics for in-progress events.
+    if (event.status.toUpperCase() !== "COMPLETED") {
+      throw new Error(
+        `Report can only be generated for completed events. Current status: "${event.status}".`
+      );
+    }
+
     // 2. Local Metrics
     const totalTasks = tasks.length;
     const doneTasks = tasks.filter((t: any) => t.status === "DONE");
