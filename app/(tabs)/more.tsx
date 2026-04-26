@@ -424,12 +424,7 @@ export default function MoreScreen() {
             iconColor="#C4B5FD"
             label="Post-Event Report"
             subtitle="AI-generated insights — open from an event"
-            onPress={() =>
-              Alert.alert(
-                "Post-Event Report",
-                "To view an AI-generated post-event report, open any completed event and tap the Report button inside.",
-                [{ text: "Got it" }]
-              )
+            onPress={() => router.push("/(tabs)/report")
             }
           />
           <View style={styles.divider} />
@@ -458,7 +453,7 @@ export default function MoreScreen() {
             iconColor="#FCA5A5"
             label="Rooms & Members"
             subtitle="Coming soon — host-only chat management"
-            onPress={() => handleComingSoon("Rooms & Members")}
+            onPress={() =>  router.push("/rooms")}
           />
         </View>
 
