@@ -3,8 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
+// Types
 export interface Recommendation {
   orgId: string;
   orgName: string;
@@ -21,8 +20,7 @@ interface Props {
   onInvite?: (orgId: string) => void;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
+// Component
 export default function PartnerRecommendCard({
   recommendation,
   rank,
@@ -36,7 +34,7 @@ export default function PartnerRecommendCard({
 
   return (
     <View style={[s.card, isTopThree && s.cardHighlight]}>
-      {/* ── Rank + Header ── */}
+      {/* Rank + Header */}
       <View style={s.headerRow}>
         <View
           style={[
@@ -73,7 +71,7 @@ export default function PartnerRecommendCard({
         </View>
       </View>
 
-      {/* ── Matched Capabilities ── */}
+      {/* Matched Capabilities */}
       {matchedCapabilities.length > 0 && (
         <View style={s.section}>
           <Text style={s.sectionTitle}>MATCHED CAPABILITIES</Text>
@@ -88,7 +86,7 @@ export default function PartnerRecommendCard({
         </View>
       )}
 
-      {/* ── All Capabilities ── */}
+      {/* All Capabilities */}
       {orgCapabilities.length > 0 && (
         <View style={s.section}>
           <Text style={s.sectionTitle}>ALL CAPABILITIES</Text>
@@ -117,7 +115,7 @@ export default function PartnerRecommendCard({
         </View>
       )}
 
-      {/* ── AI Reasoning ── */}
+      {/* AI Reasoning */}
       <View style={s.section}>
         <View style={s.reasoningHeader}>
           <Ionicons name="sparkles" size={12} color={Colors.ACCENT} />
@@ -126,7 +124,7 @@ export default function PartnerRecommendCard({
         <Text style={s.reasoningText}>{reasoning}</Text>
       </View>
 
-      {/* ── Invite Button ── */}
+      {/* Invite Button */}
       {onInvite && (
         <TouchableOpacity
           style={s.inviteBtn}
@@ -141,8 +139,7 @@ export default function PartnerRecommendCard({
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
+// Helpers
 function getScoreStyle(score: number) {
   if (score >= 80)
     return {
@@ -166,8 +163,7 @@ function getScoreStyle(score: number) {
   };
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
+// Styles
 const s = StyleSheet.create({
   card: {
     backgroundColor: Colors.BG_CARD,

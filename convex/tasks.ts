@@ -3,29 +3,11 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
+import { assertEventHost } from "./_helpers";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers
 
-async function assertEventHost(ctx: any, eventId: Id<"events">) {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) throw new Error("Not authenticated");
-  const user = await ctx.db.get(userId);
-  if (!user?.orgId) throw new Error("No organization found");
-
-  const event = await ctx.db.get(eventId);
-  if (!event) throw new Error("Event not found");
-  if (event.hostOrgId !== user.orgId) {
-    throw new Error("Only event host can manage tasks");
-  }
-
-  return { userId, orgId: user.orgId, event };
-}
-
-// ── Queries ───────────────────────────────────────────────────────────────────
-
-/**
- * Get all tasks for an event, grouped by phase
- */
+// Queries
 export const getByEvent = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
@@ -148,8 +130,7 @@ export const getPendingApproval = query({
   },
 });
 
-// ── Mutations ───────────────────────────────────────────────────────────────
-
+// Mutations
 /**
  * Mark a single AI-generated task as approved
  */

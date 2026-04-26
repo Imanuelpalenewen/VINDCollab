@@ -21,8 +21,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Colors } from "@/constants/Colors";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
+// Constants
 const CATEGORIES = [
   "Student Government", "Educational Club", "Arts & Culture", "Sports",
   "Technology", "Social & Community", "Religious", "Media & Publication",
@@ -50,8 +49,7 @@ function getAvatarColor(name: string): string {
   return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
 }
 
-// ── Screen ────────────────────────────────────────────────────────────────────
-
+// Screen
 /**
  * Organization Profile Edit Screen
  * Accessible via router.push("/org-profile") from More tab or Home header.
@@ -88,8 +86,7 @@ export default function OrgProfileScreen() {
     );
   };
 
-  // ── Save handler ──────────────────────────────────────────────────────────
-
+  // Save handler
   const handleSave = async () => {
     const e: Record<string, string> = {};
     if (!name?.trim()) e.name = "Organization name is required.";
@@ -114,8 +111,7 @@ export default function OrgProfileScreen() {
     }
   };
 
-  // ── Logo upload ───────────────────────────────────────────────────────────
-
+  // Logo upload
   const handlePickLogo = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -150,8 +146,7 @@ export default function OrgProfileScreen() {
     }
   };
 
-  // ── Loading ───────────────────────────────────────────────────────────────
-
+  // Loading
   if (org === undefined || org === null || name === null) {
     return (
       <View style={styles.centered}>
@@ -168,8 +163,7 @@ export default function OrgProfileScreen() {
   const avatarColor = getAvatarColor(org.name);
   const initials = getInitials(org.name);
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
+  // Render
   return (
     <SafeAreaView style={styles.flex} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.BG_DARK} />
@@ -180,7 +174,7 @@ export default function OrgProfileScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Header ──────────────────────────────────── */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backBtn}
@@ -193,7 +187,7 @@ export default function OrgProfileScreen() {
           <View style={{ width: 38 }} />
         </View>
 
-        {/* ── Logo upload ──────────────────────────────── */}
+        {/* Logo upload */}
         <View style={styles.logoSection}>
           <TouchableOpacity
             onPress={handlePickLogo}
@@ -221,7 +215,7 @@ export default function OrgProfileScreen() {
           </Text>
         </View>
 
-        {/* ── Edit form ────────────────────────────────── */}
+        {/* Edit form */}
         <View style={styles.formCard}>
           <Input
             label="Organization Name"
@@ -296,8 +290,7 @@ export default function OrgProfileScreen() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
+// Styles
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.BG_DARK },
   centered: { flex: 1, backgroundColor: Colors.BG_DARK, alignItems: "center", justifyContent: "center" },

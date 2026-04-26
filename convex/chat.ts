@@ -4,14 +4,9 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { action, internalQuery, mutation, query } from "./_generated/server";
+import { assertOrgMembership } from "./_helpers";
 
-async function assertOrgMembership(ctx: any) {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) throw new Error("Not authenticated");
-  const user = await ctx.db.get(userId);
-  if (!user?.orgId) throw new Error("No organization found");
-  return { userId, user, orgId: user.orgId };
-}
+
 
 async function assertEventAccess(ctx: any, eventId: Id<"events">, orgId: Id<"organizations">) {
   const event = await ctx.db.get(eventId);
@@ -684,7 +679,7 @@ export const removeRoomMember = mutation({
   },
 });
 
-// ─── Migration ───────────────────────────────────────────────────────────────
+// Migration
 // Run once with: npx convex run chat:backfillEventRooms
 // Ensures every event that has at least one ACCEPTED partnership also has
 // the default #general (EVENT) and #announcements (ANNOUNCEMENT) chat rooms.
@@ -753,7 +748,7 @@ export const backfillEventRooms = mutation({
   },
 });
 
-// ─── Migration: Sender Org Backfill ─────────────────────────────────────────
+// Migration: Sender Org Backfill
 // Optional maintenance utility for legacy analytics/audits that still expect
 // senderOrgId on chat messages. It fills only rows that are currently missing.
 export const backfillSenderOrgFromUser = mutation({

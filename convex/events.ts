@@ -1,22 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { assertOrgMembership } from "./_helpers";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers
 
-async function assertOrgMembership(ctx: any) {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) throw new Error("Not authenticated");
-  const user = await ctx.db.get(userId);
-  if (!user?.orgId) throw new Error("No organization found");
-  return { userId, user, orgId: user.orgId };
-}
-
-// ── Queries ───────────────────────────────────────────────────────────────────
-
-/**
- * All events owned by my organization, newest first.
- */
+// Queries
 export const listMyEvents = query({
   args: {},
   handler: async (ctx) => {
@@ -95,8 +84,7 @@ export const getById = query({
   },
 });
 
-// ── Mutations ─────────────────────────────────────────────────────────────────
-
+// Mutations
 /**
  * Create a new event. Pass status: "OPEN" to publish immediately,
  * or omit (defaults to "DRAFT") to save as draft.

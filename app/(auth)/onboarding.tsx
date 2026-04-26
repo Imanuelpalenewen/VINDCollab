@@ -169,7 +169,7 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── CREATE MODE ── */}
+        {/* CREATE MODE */}
         {mode === "create" && (
           <View style={styles.card}>
             <Input
@@ -283,7 +283,7 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* ── JOIN MODE ── */}
+        {/* JOIN MODE */}
         {mode === "join" && (
           <View style={styles.card}>
             <Text style={styles.joinHint}>

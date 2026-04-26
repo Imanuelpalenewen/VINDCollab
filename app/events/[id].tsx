@@ -12,8 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Colors } from "@/constants/Colors";
 import { Id } from "@/convex/_generated/dataModel";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
+// Constants
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 type EventStatus = "DRAFT" | "OPEN" | "PLANNING" | "EXECUTING" | "COMPLETED";
@@ -27,15 +26,13 @@ const STATUS_CONFIG: Record<EventStatus, { label: string; color: string; bg: str
   COMPLETED: { label: "Completed", color: "#8B5CF6", bg: "rgba(139,92,246,0.1)",  border: "rgba(139,92,246,0.3)"  },
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
+// Helpers
 function formatDate(ms: number): string {
   const d = new Date(ms);
   return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-// ── Screen ────────────────────────────────────────────────────────────────────
-
+// Screen
 export default function EventDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -48,7 +45,7 @@ export default function EventDetailScreen() {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [publishing, setPublishing] = useState(false);
 
-  // ── Loading
+  // Loading
   if (event === undefined) {
     return (
       <View style={s.centered}>
@@ -98,7 +95,7 @@ export default function EventDetailScreen() {
     );
   };
 
-  // ── Tab content
+  // Tab content
   const renderTab = () => {
     if (activeTab === "overview") {
       return (
@@ -215,14 +212,14 @@ export default function EventDetailScreen() {
     }
   };
 
-  // ── Render
+  // Render
   return (
     <SafeAreaView style={s.flex} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.BG_DARK} />
 
       <ScrollView style={s.flex} contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
 
-        {/* ── Header ── */}
+        {/* Header */}
         <View style={s.header}>
           <TouchableOpacity style={s.backBtn} onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="arrow-back" size={20} color={Colors.TEXT_SECONDARY} />
@@ -243,10 +240,10 @@ export default function EventDetailScreen() {
           </View>
         </View>
 
-        {/* ── Event title ── */}
+        {/* Event title */}
         <Text style={s.eventTitle}>{event.title}</Text>
 
-        {/* ── Meta row ── */}
+        {/* Meta row */}
         <View style={s.metaRow}>
           <View style={s.metaItem}>
             <Ionicons name="calendar-outline" size={14} color={Colors.TEXT_MUTED} />
@@ -262,7 +259,7 @@ export default function EventDetailScreen() {
           </View>
         </View>
 
-        {/* ── Stats strip ── */}
+        {/* Stats strip */}
         <View style={s.statsStrip}>
           <View style={s.stripItem}>
             <Text style={[s.stripVal, { color: "#93C5FD" }]}>{event.acceptedPartners ?? 0}</Text>
@@ -280,7 +277,7 @@ export default function EventDetailScreen() {
           </View>
         </View>
 
-        {/* ── Tab bar ── */}
+        {/* Tab bar */}
         <View style={s.tabBar}>
           {(["overview", "partners", "tasks"] as TabKey[]).map((tab) => (
             <TouchableOpacity
@@ -296,7 +293,7 @@ export default function EventDetailScreen() {
           ))}
         </View>
 
-        {/* ── Tab content ── */}
+        {/* Tab content */}
         <View style={s.tabContent}>
           {renderTab()}
         </View>
@@ -304,7 +301,7 @@ export default function EventDetailScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* ── Bottom action bar ── */}
+      {/* Bottom action bar */}
       {(canPublish || canFindPartners) && (
         <View style={s.actionBar}>
           {canPublish && (
@@ -347,8 +344,7 @@ function isSameDayMs(a: number, b: number) {
          da.getDate() === db.getDate();
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
+// Styles
 const s = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.BG_DARK },
   centered: { flex: 1, backgroundColor: Colors.BG_DARK, alignItems: "center", justifyContent: "center", gap: 12 },

@@ -70,7 +70,7 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Logo Section ── */}
+        {/* Logo Section */}
         <View style={styles.logoSection}>
           <View style={styles.logoContainer}>
             <Ionicons name="people-circle" size={44} color={Colors.PRIMARY} />
@@ -79,7 +79,7 @@ export default function LoginScreen() {
           <Text style={styles.tagline}>Campus Event Collaboration Platform</Text>
         </View>
 
-        {/* ── Card ── */}
+        {/* Card */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Welcome back 👋</Text>
           <Text style={styles.cardSubtitle}>Sign in to your account</Text>
@@ -119,7 +119,7 @@ export default function LoginScreen() {
           />
         </View>
 
-        {/* ── Footer ── */}
+        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
           <TouchableOpacity
