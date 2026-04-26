@@ -576,13 +576,13 @@ export const getRoomsWithMembers = query({
       .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
       .collect();
 
-    // Exclude auto-created partnership side-channels (names look like
-    // "partnership-kh70cc6eccsrx121xe9vxjtfbd8..." -- raw Convex IDs).
-    // These internal rooms are not intended for the Room Management UI.
-    const visibleRooms = rooms.filter((r) => !r.name.startsWith('partnership-'));
+    // Filter out partnership side-channels and internal TASK rooms
+    const filteredRooms = rooms.filter(
+      (r) => !r.name.startsWith("partnership-") && r.type !== "TASK"
+    );
 
     return await Promise.all(
-      visibleRooms.map(async (room) => {
+      filteredRooms.map(async (room) => {
         const members = await ctx.db
           .query("chatRoomMembers")
           .withIndex("by_room", (q) => q.eq("roomId", room._id))
