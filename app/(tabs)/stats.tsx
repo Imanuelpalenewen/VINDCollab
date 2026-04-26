@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "convex/react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
 import {
   ActivityIndicator,
   Alert,
@@ -116,7 +117,8 @@ const sh = StyleSheet.create({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function StatsScreen() {
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const { selectedEventId: paramEventId } = useLocalSearchParams<{ selectedEventId: string }>();
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(paramEventId ?? null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTimeRange, setSelectedTimeRange] = useState<"7d" | "14d" | "30d" | "all">("30d");
 
@@ -126,6 +128,11 @@ export default function StatsScreen() {
   const [selectedBarData, setSelectedBarData] = useState<any>(null);
   const [selectedLineData, setSelectedLineData] = useState<any>(null);
 
+  useEffect(() => {
+  if (paramEventId && paramEventId !== selectedEventId) {
+    setSelectedEventId(paramEventId);
+  }
+}, [paramEventId]);
   const myEvents = (useQuery(api.events.listMyInvolvedEvents) ?? []).filter(Boolean) as Event[];
   const myOrg = useQuery(api.organizations.getMyOrg);
 

@@ -18,6 +18,7 @@ import type * as crons from "../crons.js";
 import type * as events from "../events.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
+import type * as notifications from "../notifications.js";
 import type * as organizations from "../organizations.js";
 import type * as partnerships from "../partnerships.js";
 import type * as reports from "../reports.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   events: typeof events;
   http: typeof http;
   invitations: typeof invitations;
+  notifications: typeof notifications;
   organizations: typeof organizations;
   partnerships: typeof partnerships;
   reports: typeof reports;
