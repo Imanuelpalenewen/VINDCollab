@@ -34,7 +34,7 @@ function AuthGuard() {
     const onOnboarding = inAuthGroup && segments[1] === "onboarding";
 
     // Root-level stack screens that authenticated + onboarded users may visit
-    const ALLOWED_ROOT_SCREENS = ["org-profile", "events", "invitations", "chat", "rooms"];
+    const ALLOWED_ROOT_SCREENS = ["org-profile", "events", "invitations", "chat", "rooms", "partners", "notifications"];
     const inAllowedRoot = ALLOWED_ROOT_SCREENS.includes(segments[0] ?? "");
 
     if (!isAuthenticated) {
@@ -76,6 +76,8 @@ export default function RootLayout() {
           <Stack.Screen name="invitations/inbox" options={{ headerShown: false, animation: "slide_from_right" }} />
           <Stack.Screen name="chat/[eventId]" options={{ headerShown: false, animation: "slide_from_right" }} />
           <Stack.Screen name="rooms" options={{ headerShown: false, animation: "slide_from_right" }} />
+          <Stack.Screen name="partners" options={{ headerShown: false, animation: "slide_from_right" }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false, animation: "slide_from_right" }} />
         </Stack>
       </ConvexAuthProvider>
     </GestureHandlerRootView>

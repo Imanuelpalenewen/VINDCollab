@@ -5,7 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAction, useQuery } from "convex/react";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
 import {
   ActivityIndicator,
   Alert,
@@ -186,10 +187,18 @@ function BarChart({ partners }: { partners: { orgName: string; score: number }[]
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function ReportScreen() {
+  const { selectedEventId: paramEventId } = useLocalSearchParams<{ selectedEventId: string }>();
   const events = useQuery(api.reports.getEventsForReport);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [generating, setGenerating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  useEffect(() => {
+  if (paramEventId && events && !selectedEvent) {
+    const match = events.find((e) => e._id === paramEventId);
+    if (match) setSelectedEvent(match);
+  }
+}, [paramEventId, events]);
 
   const report = useQuery(
     api.ai.postEventReport.getReportByEvent,
