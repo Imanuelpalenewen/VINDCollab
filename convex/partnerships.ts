@@ -10,6 +10,7 @@
 
 import { query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { v } from "convex/values";
 
 /**
  * Returns all partnerships involving the current org,
@@ -17,6 +18,16 @@ import { getAuthUserId } from "@convex-dev/auth/server";
  *
  * Used by the Partner Management screen.
  */
+export const getByEvent = query({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("partnerships")
+      .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
+      .collect();
+  },
+});
+
 export const getMyPartnerships = query({
   args: {},
   handler: async (ctx) => {
