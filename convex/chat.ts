@@ -576,8 +576,13 @@ export const getRoomsWithMembers = query({
       .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
       .collect();
 
+    // Filter out partnership side-channels and internal TASK rooms
+    const filteredRooms = rooms.filter(
+      (r) => !r.name.startsWith("partnership-") && r.type !== "TASK"
+    );
+
     return await Promise.all(
-      rooms.map(async (room) => {
+      filteredRooms.map(async (room) => {
         const members = await ctx.db
           .query("chatRoomMembers")
           .withIndex("by_room", (q) => q.eq("roomId", room._id))
