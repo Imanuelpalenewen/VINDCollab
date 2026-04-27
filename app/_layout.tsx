@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -12,9 +13,38 @@ const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
 
 /** SecureStore adapter for persisting auth session token on-device */
 const secureStorage = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
-  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+  getItem: async (key: string) => {
+    if (Platform.OS === "web") {
+      try {
+        return localStorage.getItem(key);
+      } catch {
+        return null;
+      }
+    }
+    return SecureStore.getItemAsync(key);
+  },
+  setItem: async (key: string, value: string) => {
+    if (Platform.OS === "web") {
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+        // Ignore storage write failures in restricted browser modes.
+      }
+      return;
+    }
+    return SecureStore.setItemAsync(key, value);
+  },
+  removeItem: async (key: string) => {
+    if (Platform.OS === "web") {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // Ignore storage remove failures in restricted browser modes.
+      }
+      return;
+    }
+    return SecureStore.deleteItemAsync(key);
+  },
 };
 
 /**
