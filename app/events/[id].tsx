@@ -41,9 +41,11 @@ export default function EventDetailScreen() {
   const myOrg = useQuery(api.organizations.getMyOrg);
   const event = useQuery(api.events.getById, { id: id as Id<"events"> });
   const publishMutation = useMutation(api.events.publishEvent);
+  const markAsCompleteMutation = useMutation(api.events.markAsComplete);
 
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [publishing, setPublishing] = useState(false);
+  const [completing, setCompleting] = useState(false);
 
   // Loading
   if (event === undefined) {
@@ -71,6 +73,7 @@ export default function EventDetailScreen() {
   const isMyEvent = event.hostOrg?._id === myOrg?._id;
   const canPublish = isMyEvent && event.status === "DRAFT";
   const canFindPartners = isMyEvent && (event.status === "OPEN" || event.status === "PLANNING");
+  const canComplete = isMyEvent && event.status !== "COMPLETED" && event.status !== "DRAFT";
 
   const handlePublish = () => {
     Alert.alert(
@@ -88,6 +91,29 @@ export default function EventDetailScreen() {
               Alert.alert("Error", err.message ?? "Failed to publish event.");
             } finally {
               setPublishing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleComplete = () => {
+    Alert.alert(
+      "Mark Event as Completed?",
+      "This will close the event and trigger post-event workflows (like AI reports).",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Complete",
+          onPress: async () => {
+            setCompleting(true);
+            try {
+              await markAsCompleteMutation({ id: id as Id<"events"> });
+            } catch (err: any) {
+              Alert.alert("Error", err.message ?? "Failed to mark as complete.");
+            } finally {
+              setCompleting(false);
             }
           },
         },
@@ -302,7 +328,7 @@ export default function EventDetailScreen() {
       </ScrollView>
 
       {/* Bottom action bar */}
-      {(canPublish || canFindPartners) && (
+      {(canPublish || canFindPartners || canComplete) && (
         <View style={s.actionBar}>
           {canPublish && (
             <TouchableOpacity
@@ -323,12 +349,29 @@ export default function EventDetailScreen() {
           )}
           {canFindPartners && (
             <TouchableOpacity
-              style={s.aiActionBtn}
+              style={[s.aiActionBtn, canComplete && { marginBottom: 10 }]}
               onPress={() => router.push(`/events/partners?eventId=${id}`)}
               activeOpacity={0.85}
             >
               <Ionicons name="sparkles" size={18} color="#fff" />
               <Text style={s.aiActionBtnText}>Find Partners</Text>
+            </TouchableOpacity>
+          )}
+          {canComplete && (
+            <TouchableOpacity
+              style={[s.publishBtn, { backgroundColor: Colors.SUCCESS }]}
+              onPress={handleComplete}
+              disabled={completing}
+              activeOpacity={0.85}
+            >
+              {completing ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-done-circle-outline" size={18} color="#fff" />
+                  <Text style={s.publishBtnText}>Mark as Completed</Text>
+                </>
+              )}
             </TouchableOpacity>
           )}
         </View>

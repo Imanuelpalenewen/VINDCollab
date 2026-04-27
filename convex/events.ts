@@ -216,3 +216,18 @@ export const listMyInvolvedEvents = query({
     return uniqueEvents;
   },
 });
+
+/**
+ * Mark event as COMPLETED.
+ */
+export const markAsComplete = mutation({
+  args: { id: v.id("events") },
+  handler: async (ctx, args) => {
+    const { orgId } = await assertOrgMembership(ctx);
+    const event = await ctx.db.get(args.id);
+    if (!event) throw new Error("Event not found");
+    if (event.hostOrgId !== orgId) throw new Error("Not authorized");
+
+    await ctx.db.patch(args.id, { status: "COMPLETED" });
+  },
+});
