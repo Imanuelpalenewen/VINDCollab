@@ -71,15 +71,7 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.headerActions}>
-            {/* Notification bell (placeholder for future) */}
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={() => {}}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="notifications-outline" size={20} color={Colors.TEXT_SECONDARY} />
-            </TouchableOpacity>
-
+            
             {/* Avatar → org profile */}
             <TouchableOpacity
               style={[styles.avatarBtn, { borderColor: avatarColor + "55" }]}
