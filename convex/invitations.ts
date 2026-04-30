@@ -184,6 +184,8 @@ export const sendInvitation = mutation({
       personalMessage: args.personalMessage ? args.personalMessage.trim() : undefined,
       declineReason: undefined,
       negotiationRounds: 1,
+      // Track that sender proposed first → recipient must respond
+      lastProposedBy: orgId,
     });
 
     // Create initial negotiation history entry
@@ -218,10 +220,36 @@ export const respondToInvitation = mutation({
     const invitation = await ctx.db.get(args.invitationId);
     if (!invitation) throw new Error("Invitation not found");
 
-    // Verify responder is the recipient
-    if (invitation.recipientOrgId !== orgId) {
-      throw new Error("Only the invitation recipient can respond");
+    // Verify caller is part of this invitation
+    const isParty =
+      invitation.senderOrgId === orgId || invitation.recipientOrgId === orgId;
+    if (!isParty) throw new Error("You are not part of this invitation");
+
+    // ─── Turn validation ────────────────────────────────────────────────────
+    // If lastProposedBy is set, the OTHER party must respond.
+    // If it's undefined (legacy records), fall back to history query.
+    if (invitation.lastProposedBy) {
+      if (orgId === invitation.lastProposedBy) {
+        throw new Error("Waiting for the other party to respond");
+      }
+    } else {
+      // Legacy fallback: query history to determine turn
+      const history = await ctx.db
+        .query("negotiationHistory")
+        .withIndex("by_invitation", (q) => q.eq("invitationId", args.invitationId))
+        .order("desc")
+        .first();
+      if (history) {
+        if (orgId === history.proposedBy) {
+          throw new Error("Waiting for the other party to respond");
+        }
+      } else {
+        if (orgId !== invitation.recipientOrgId) {
+          throw new Error("Only the invitation recipient can respond");
+        }
+      }
     }
+    // ────────────────────────────────────────────────────────────────────────
 
     // Verify status allows response
     if (invitation.status !== "PENDING" && invitation.status !== "NEGOTIATING") {
@@ -239,10 +267,11 @@ export const respondToInvitation = mutation({
       });
 
       // Record decline in history
+      // proposedBy = orgId (whoever is declining this round)
       await ctx.db.insert("negotiationHistory", {
         invitationId: args.invitationId,
         round: invitation.negotiationRounds + 1,
-        proposedBy: invitation.recipientOrgId,
+        proposedBy: orgId,
         proposedRole: invitation.proposedRole,
         resourceContribution: invitation.resourceContribution,
         revenueSharing: invitation.revenueSharing,
@@ -274,10 +303,11 @@ export const respondToInvitation = mutation({
     });
 
     // Record acceptance in history
+    // proposedBy = orgId (whoever is accepting this round)
     await ctx.db.insert("negotiationHistory", {
       invitationId: args.invitationId,
       round: invitation.negotiationRounds + 1,
-      proposedBy: invitation.senderOrgId,
+      proposedBy: orgId,
       proposedRole: invitation.proposedRole,
       resourceContribution: invitation.resourceContribution,
       revenueSharing: invitation.revenueSharing,
@@ -362,7 +392,7 @@ export const counterPropose = mutation({
       throw new Error("Negotiation has exceeded maximum 5 rounds and has expired");
     }
 
-    // Update invitation with new terms and increment rounds
+    // Update invitation with new terms, increment rounds, and mark turn
     const newRound = invitation.negotiationRounds + 1;
     await ctx.db.patch(args.invitationId, {
       status: "NEGOTIATING",
@@ -370,6 +400,8 @@ export const counterPropose = mutation({
       resourceContribution: args.resourceContribution ? args.resourceContribution.trim() : undefined,
       revenueSharing: args.revenueSharing,
       negotiationRounds: newRound,
+      // Track that this org just proposed → the OTHER party must respond next
+      lastProposedBy: orgId,
     });
 
     // Record counter-proposal in history

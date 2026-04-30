@@ -10,6 +10,10 @@ import {
   StatusBar,
   Modal,
   TextInput,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Platform,
+  Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -27,19 +31,23 @@ export default function InvitationDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
+  // ─────────────────────────────────────────────────────────────
+  // ✅ FIX 1: SEMUA hooks harus di sini, SEBELUM return apapun
+  // ─────────────────────────────────────────────────────────────
   const invitation = useQuery(api.invitations.getInvitationDetail, {
     invitationId: (id ?? "") as Id<"invitations">,
   });
+  const myOrg = useQuery(api.organizations.getMyOrg);
 
   const respondMutation = useMutation(api.invitations.respondToInvitation);
-  const counterProposeMutation = useMutation(
-    api.invitations.counterPropose
-  );
+  const counterProposeMutation = useMutation(api.invitations.counterPropose);
 
   const [responding, setResponding] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
   const [showDeclineModal, setShowDeclineModal] = useState(false);
-
+  // ─────────────────────────────────────────────────────────────
+  // Baru boleh early return SETELAH semua hooks di atas
+  // ─────────────────────────────────────────────────────────────
   if (!invitation) {
     return (
       <SafeAreaView style={s.container} edges={["top"]}>
@@ -58,8 +66,41 @@ export default function InvitationDetailScreen() {
     EXPIRED: Colors.ERROR,
   }[invitation.status] || Colors.TEXT_MUTED;
 
-  const canRespond = invitation.status === "PENDING" || invitation.status === "NEGOTIATING";
-  const isRecipient = true; // Simplified - in real app, check current org
+  const canRespond =
+    invitation.status === "PENDING" || invitation.status === "NEGOTIATING";
+
+  // Are we one of the two parties in this invitation?
+  const isParty = (() => {
+    if (!myOrg) return false;
+    return (
+      myOrg._id === invitation.senderOrgId ||
+      myOrg._id === invitation.recipientOrgId
+    );
+  })();
+
+  // Is it MY turn to respond?
+  //   - If lastProposedBy is set: I can respond only if I was NOT the last to propose
+  //   - If lastProposedBy is unset (legacy): fall back to recipient-only logic
+  const isMyTurn = (() => {
+    if (!myOrg) return false;
+    if (!canRespond) return false;
+    if (invitation.lastProposedBy) {
+      return invitation.lastProposedBy !== myOrg._id;
+    }
+    // Legacy fallback: only recipient can respond initially
+    return myOrg._id === invitation.recipientOrgId;
+  })();
+
+  // Show action buttons only when it's your turn
+  const showActionButtons = isParty && isMyTurn;
+
+  // Show "waiting" banner when you've already proposed and are awaiting the other party
+  const isWaiting =
+    isParty &&
+    canRespond &&
+    !isMyTurn &&
+    !!invitation.lastProposedBy &&
+    invitation.lastProposedBy === myOrg?._id;
 
   const handleAccept = async () => {
     setResponding(true);
@@ -69,10 +110,7 @@ export default function InvitationDetailScreen() {
         response: "ACCEPTED",
       });
       Alert.alert("Success", "Invitation accepted!", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
-        },
+        { text: "OK", onPress: () => router.back() },
       ]);
     } catch (error: any) {
       Alert.alert("Error", error.message ?? "Failed to accept invitation");
@@ -95,10 +133,7 @@ export default function InvitationDetailScreen() {
         declineReason: declineReason.trim(),
       });
       Alert.alert("Declined", "Invitation declined", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
-        },
+        { text: "OK", onPress: () => router.back() },
       ]);
     } catch (error: any) {
       Alert.alert("Error", error.message ?? "Failed to decline invitation");
@@ -180,39 +215,47 @@ export default function InvitationDetailScreen() {
         <View style={s.orgsSection}>
           <View style={s.orgBox}>
             <Text style={s.orgLabel}>From</Text>
-            <Text style={s.orgName}>{invitation.senderOrg?.name ?? "Organization"}</Text>
+            <Text style={s.orgName}>
+              {invitation.senderOrg?.name ?? "Organization"}
+            </Text>
           </View>
           <View style={s.arrowContainer}>
-            <Ionicons name="arrow-forward" size={20} color={Colors.TEXT_MUTED} />
+            <Ionicons
+              name="arrow-forward"
+              size={20}
+              color={Colors.TEXT_MUTED}
+            />
           </View>
           <View style={s.orgBox}>
             <Text style={s.orgLabel}>To</Text>
-            <Text style={s.orgName}>{invitation.recipientOrg?.name ?? "Organization"}</Text>
+            <Text style={s.orgName}>
+              {invitation.recipientOrg?.name ?? "Organization"}
+            </Text>
           </View>
         </View>
 
         {/* Terms */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Proposed Terms</Text>
-
           <Card style={s.termCard}>
             <View style={s.termRow}>
               <Text style={s.termLabel}>Role:</Text>
               <Badge label={invitation.proposedRole} />
             </View>
-
             {invitation.resourceContribution && (
               <View style={s.termRow}>
                 <Text style={s.termLabel}>Resources:</Text>
-                <Text style={s.termValue}>{invitation.resourceContribution}</Text>
+                <Text style={s.termValue}>
+                  {invitation.resourceContribution}
+                </Text>
               </View>
             )}
-
             {invitation.revenueSharing && (
               <View style={s.termRow}>
                 <Text style={s.termLabel}>Revenue Share:</Text>
                 <Text style={s.termValue}>
-                  {invitation.revenueSharing.percentage}% ({invitation.revenueSharing.method})
+                  {invitation.revenueSharing.percentage}% (
+                  {invitation.revenueSharing.method})
                 </Text>
               </View>
             )}
@@ -229,7 +272,7 @@ export default function InvitationDetailScreen() {
           </View>
         )}
 
-        {/* Decline Reason (if declined) */}
+        {/* Decline Reason */}
         {invitation.declineReason && (
           <View style={s.section}>
             <Text style={s.sectionTitle}>Decline Reason</Text>
@@ -252,7 +295,8 @@ export default function InvitationDetailScreen() {
                   key={i}
                   style={[
                     s.roundsBarSegment,
-                    i < invitation.negotiationRounds && s.roundsBarSegmentActive,
+                    i < invitation.negotiationRounds &&
+                      s.roundsBarSegmentActive,
                   ]}
                 />
               ))}
@@ -263,8 +307,19 @@ export default function InvitationDetailScreen() {
         {/* Negotiation History */}
         <NegotiationHistoryView invitationId={id as Id<"invitations">} />
 
-        {/* Action Buttons */}
-        {canRespond && isRecipient && (
+        {/* Waiting banner – shown when YOU last proposed and are awaiting the partner */}
+        {isWaiting && (
+          <View style={s.waitingSection}>
+            <Ionicons name="hourglass-outline" size={20} color={Colors.INFO ?? "#06B6D4"} />
+            <Text style={s.waitingTitle}>Waiting for Partner</Text>
+            <Text style={s.waitingText}>
+              You have submitted your proposal. The other party needs to respond.
+            </Text>
+          </View>
+        )}
+
+        {/* Action Buttons – shown only when it's YOUR turn to respond */}
+        {showActionButtons && (
           <View style={s.actionsSection}>
             <Button
               title="Accept"
@@ -294,7 +349,11 @@ export default function InvitationDetailScreen() {
 
         {invitation.status === "ACCEPTED" && (
           <View style={s.acceptedSection}>
-            <Ionicons name="checkmark-circle" size={32} color={Colors.SUCCESS} />
+            <Ionicons
+              name="checkmark-circle"
+              size={32}
+              color={Colors.SUCCESS}
+            />
             <Text style={s.acceptedTitle}>Partnership Accepted</Text>
             <Text style={s.acceptedText}>
               This partnership has been confirmed. A chat room has been created.
@@ -305,19 +364,45 @@ export default function InvitationDetailScreen() {
         <View style={s.spacing} />
       </ScrollView>
 
-      {/* Decline Modal */}
+      {/* ─────────────────────────────────────────────────────────
+          ✅ FIX 2: Decline Modal dengan KeyboardAvoidingView
+          - Tap area gelap = dismiss keyboard
+          - Tombol tidak ketutupan keyboard
+          - Tombol X bisa tutup modal + keyboard sekaligus
+          ───────────────────────────────────────────────────── */}
       <Modal
         visible={showDeclineModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowDeclineModal(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setShowDeclineModal(false);
+        }}
       >
-        <SafeAreaView style={s.modalContainer}>
+        {/* Area gelap di atas modal → tap = dismiss keyboard */}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={s.modalOverlay} />
+        </TouchableWithoutFeedback>
+
+        {/* Modal naik saat keyboard muncul */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={s.modalKAV}
+        >
           <View style={s.modalContent}>
             <View style={s.modalHeader}>
               <Text style={s.modalTitle}>Why are you declining?</Text>
-              <TouchableOpacity onPress={() => setShowDeclineModal(false)}>
-                <Ionicons name="close" size={24} color={Colors.TEXT_SECONDARY} />
+              <TouchableOpacity
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setShowDeclineModal(false);
+                }}
+              >
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={Colors.TEXT_SECONDARY}
+                />
               </TouchableOpacity>
             </View>
 
@@ -329,12 +414,16 @@ export default function InvitationDetailScreen() {
               numberOfLines={4}
               value={declineReason}
               onChangeText={setDeclineReason}
+              blurOnSubmit={false}
             />
 
             <View style={s.modalActions}>
               <Button
                 title="Cancel"
-                onPress={() => setShowDeclineModal(false)}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setShowDeclineModal(false);
+                }}
                 variant="outline"
                 style={{ flex: 1 }}
               />
@@ -346,7 +435,7 @@ export default function InvitationDetailScreen() {
               />
             </View>
           </View>
-        </SafeAreaView>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -491,10 +580,6 @@ const s = StyleSheet.create({
     color: Colors.TEXT_SECONDARY,
     lineHeight: 20,
   },
-  declineCard: {
-    borderColor: "rgba(239, 68, 68, 0.3)",
-    backgroundColor: "rgba(239, 68, 68, 0.05)",
-  },
   declineMessageCard: {
     minHeight: 80,
     borderColor: "rgba(239, 68, 68, 0.3)",
@@ -534,6 +619,28 @@ const s = StyleSheet.create({
   declineButton: {
     marginBottom: 0,
   },
+  waitingSection: {
+    alignItems: "center",
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(6, 182, 212, 0.25)",
+    backgroundColor: "rgba(6, 182, 212, 0.06)",
+    gap: 8,
+  },
+  waitingTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#06B6D4",
+  },
+  waitingText: {
+    fontSize: 12,
+    color: Colors.TEXT_MUTED,
+    textAlign: "center",
+    lineHeight: 18,
+  },
   acceptedSection: {
     alignItems: "center",
     paddingVertical: 24,
@@ -549,23 +656,33 @@ const s = StyleSheet.create({
     color: Colors.TEXT_MUTED,
     textAlign: "center",
   },
-  modalContainer: {
+
+  // ─── Modal styles (Fix 2) ───────────────────────────────────
+  // Area gelap semi-transparan di belakang modal
+  modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
   },
+  // KeyboardAvoidingView nempel di bawah layar
+  modalKAV: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  // Konten modal (sheet dari bawah)
   modalContent: {
-    flex: 1,
     backgroundColor: Colors.BG_DARK,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
-    justifyContent: "space-between",
+    paddingBottom: 34, // ruang aman di bawah (home indicator)
+    gap: 16,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
   },
   modalTitle: {
     fontSize: 16,
@@ -584,7 +701,6 @@ const s = StyleSheet.create({
     fontWeight: "500",
     textAlignVertical: "top",
     minHeight: 120,
-    marginBottom: 16,
   },
   modalActions: {
     flexDirection: "row",
