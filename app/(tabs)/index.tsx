@@ -71,7 +71,7 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.headerActions}>
-
+            
             {/* Avatar → org profile */}
             <TouchableOpacity
               style={[styles.avatarBtn, { borderColor: avatarColor + "55" }]}

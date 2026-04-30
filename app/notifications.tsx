@@ -474,7 +474,7 @@ export default function NotificationsScreen() {
                 <View style={s.dateLine} />
               </View>
 
-              {group.data.map((notif) => (
+              {group.data.map((notif:AppNotification) => (
                 <NotifItem
                   key={notif.id}
                   item={notif}
