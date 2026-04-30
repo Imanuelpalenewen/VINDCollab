@@ -125,6 +125,12 @@ export default defineSchema({
     personalMessage: v.optional(v.string()),
     declineReason: v.optional(v.string()),
     negotiationRounds: v.number(),
+    /**
+     * Tracks whose turn it is: the org that LAST proposed/counter-proposed.
+     * The OTHER party must respond next. Used in both backend and frontend
+     * to determine whose turn it is without querying negotiationHistory.
+     */
+    lastProposedBy: v.optional(v.id("organizations")),
   })
     .index("by_event", ["eventId"])
     .index("by_sender", ["senderOrgId"])

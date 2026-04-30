@@ -71,9 +71,29 @@ function formatRelativeDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function isActionRequired(status: string, tab: Tab): boolean {
-  if (tab === "received") return status === "PENDING" || status === "NEGOTIATING";
-  return false;
+/**
+ * Determines if the current org needs to take action on this invitation.
+ * Uses lastProposedBy to know whose turn it is:
+ *   - The org that LAST proposed is WAITING
+ *   - The OTHER org needs to respond (accept / decline / counter-propose)
+ * Falls back to tab-based logic for legacy records without lastProposedBy.
+ */
+function needsMyAction(
+  inv: InvitationType,
+  myOrgId: string | undefined,
+  tab: Tab
+): boolean {
+  if (!myOrgId) return false;
+  if (inv.status !== "PENDING" && inv.status !== "NEGOTIATING") return false;
+
+  if (inv.lastProposedBy) {
+    // New logic: whoever last proposed is WAITING, the other must act
+    return inv.lastProposedBy !== myOrgId;
+  }
+
+  // Legacy fallback (no lastProposedBy field)
+  if (inv.status === "PENDING") return tab === "received"; // original sender must wait
+  return true; // NEGOTIATING: show to both to be safe
 }
 
 // ── Invitation Card ───────────────────────────────────────────────────────────
@@ -81,14 +101,16 @@ function isActionRequired(status: string, tab: Tab): boolean {
 function InvitationCard({
   item,
   tab,
+  myOrgId,
   onPress,
 }: {
   item: InvitationType;
   tab: Tab;
+  myOrgId: string | undefined;
   onPress: () => void;
 }) {
   const ss = getStatusStyle(item.status);
-  const actionNeeded = isActionRequired(item.status, tab);
+  const actionNeeded = needsMyAction(item, myOrgId, tab);
 
   const counterpartName =
     tab === "received"
@@ -280,10 +302,16 @@ export default function InvitationInboxScreen() {
     [allItems, myOrg?._id]
   );
 
-  // Unread / action-needed count for received tab badge
-  const pendingReceivedCount = receivedItems.filter(
-    (inv) => inv.status === "PENDING" || inv.status === "NEGOTIATING"
-  ).length;
+  // Count per tab: how many items in each tab need MY action
+  const receivedActionCount = useMemo(
+    () => receivedItems.filter((inv) => needsMyAction(inv, myOrg?._id, "received")).length,
+    [receivedItems, myOrg?._id]
+  );
+  const sentActionCount = useMemo(
+    () => sentItems.filter((inv) => needsMyAction(inv, myOrg?._id, "sent")).length,
+    [sentItems, myOrg?._id]
+  );
+
 
   const displayedItems = tab === "received" ? receivedItems : sentItems;
 
@@ -342,7 +370,9 @@ export default function InvitationInboxScreen() {
         {(["received", "sent"] as Tab[]).map((t) => {
           const isActive = tab === t;
           const count = t === "received" ? receivedItems.length : sentItems.length;
-          const badge = t === "received" && pendingReceivedCount > 0 ? pendingReceivedCount : null;
+          // Show badge for items that need action in this tab
+          const tabActionCount = t === "received" ? receivedActionCount : sentActionCount;
+          const badge = tabActionCount > 0 ? tabActionCount : null;
 
           return (
             <TouchableOpacity
@@ -384,15 +414,27 @@ export default function InvitationInboxScreen() {
       </View>
 
       {/* ── Context tip ── */}
-      {tab === "received" && pendingReceivedCount > 0 && (
+      {tab === "received" && receivedActionCount > 0 && (
         <View style={s.tipBanner}>
           <Ionicons name="alert-circle" size={14} color={Colors.WARNING} />
           <Text style={s.tipText}>
             You have{" "}
             <Text style={{ color: Colors.WARNING, fontWeight: "700" }}>
-              {pendingReceivedCount} invitation{pendingReceivedCount !== 1 ? "s" : ""}
+              {receivedActionCount} invitation{receivedActionCount !== 1 ? "s" : ""}
             </Text>{" "}
             waiting for your response.
+          </Text>
+        </View>
+      )}
+
+      {tab === "sent" && sentActionCount > 0 && (
+        <View style={[s.tipBanner, s.tipBannerOrange]}>
+          <Ionicons name="swap-horizontal-outline" size={14} color={Colors.WARNING} />
+          <Text style={s.tipText}>
+            <Text style={{ color: Colors.WARNING, fontWeight: "700" }}>
+              {sentActionCount} invitation{sentActionCount !== 1 ? "s" : ""}
+            </Text>{" "}
+            received a counter-proposal. Tap to respond.
           </Text>
         </View>
       )}
@@ -417,6 +459,7 @@ export default function InvitationInboxScreen() {
             <InvitationCard
               item={item}
               tab={tab}
+              myOrgId={myOrg?._id}
               onPress={() =>
                 router.push({
                   pathname: "/invitations/[id]",
@@ -510,6 +553,10 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(245,158,11,0.07)",
     borderWidth: 1, borderColor: "rgba(245,158,11,0.2)",
     borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+  },
+  tipBannerOrange: {
+    backgroundColor: "rgba(245,158,11,0.07)",
+    borderColor: "rgba(245,158,11,0.2)",
   },
   tipBannerBlue: {
     backgroundColor: "rgba(59,130,246,0.07)",
