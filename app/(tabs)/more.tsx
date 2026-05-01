@@ -1,14 +1,3 @@
-/**
- * app/(tabs)/more.tsx
- *
- * Changes from original:
- *  - Partner Management → navigates to invitations inbox (sent tab)
- *  - Notifications      → navigates to invitations inbox (received tab) with pending count badge
- *  - Invite Code section: added "How others join" explanation so admins understand the flow
- *  - Rooms & Members: kept as coming-soon (no existing screen)
- *  - Post-Event Report: kept as coming-soon (generated from event detail screen)
- */
-
 import React, { useState } from "react";
 import {
   ActivityIndicator,

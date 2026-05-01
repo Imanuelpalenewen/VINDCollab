@@ -51,9 +51,8 @@ function getAvatarColor(name: string): string {
 
 // Screen
 /**
- * Organization Profile Edit Screen
- * Accessible via router.push("/org-profile") from More tab or Home header.
- * Shows logo upload + edit form for name, category, capabilities.
+ - Organization Profile Edit Screen
+ - Shows logo upload + edit form for name, category, capabilities.
  */
 export default function OrgProfileScreen() {
   const router = useRouter();

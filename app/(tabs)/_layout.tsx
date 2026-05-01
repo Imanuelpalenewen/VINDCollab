@@ -115,8 +115,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* Hidden — accessible via router.push("/org-profile") */}
-      <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
   );
 }

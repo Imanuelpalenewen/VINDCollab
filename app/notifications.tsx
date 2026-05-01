@@ -1,16 +1,3 @@
-/**
- * app/notifications.tsx
- *
- * Notifications / Activity Feed screen.
- * Navigation per type:
- *  - AI_ALERT        → /(tabs)/stats        (analytics / risk monitor)
- *  - PROGRESS_REPORT → /(tabs)/report       (post-event report)
- *  - CHAT_MESSAGE    → /events/[id]/chat/[roomId]  (specific room)
- *                      /events/[id]                 (fallback, no roomId)
- *  - PARTNER_ACCEPTED / PARTNER_DECLINED → /invitations/inbox
- *  - TASK_UPDATE     → /(tabs)/tasks  with selectedEventId param
- */
-
 import React, { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -30,7 +17,7 @@ import { api } from "@/convex/_generated/api";
 import { Colors } from "@/constants/Colors";
 import type { AppNotification, NotificationType } from "@/convex/notifications";
 
-// ── Notification icon config ──────────────────────────────────────────────────
+// Notification icon config 
 
 function notifConfig(
   type: NotificationType,
@@ -89,23 +76,14 @@ function notifConfig(
   }
 }
 
-// ── Navigation resolver ───────────────────────────────────────────────────────
-//
-// Routing decisions based on screen params:
-//
-//  tasks.tsx   → accepts `selectedEventId` via useLocalSearchParams ✓
-//  stats.tsx   → no params (useState only) — we just open the tab
-//  report.tsx  → no params (useState only) — we just open the tab
-//  events/[id].tsx            → needs `id`
-//  events/[id]/chat/[roomId]  → needs `id` (eventId) + `roomId`
-//  invitations/inbox.tsx      → no params needed
+// Navigation resolver 
 
 function resolveNavigation(
   item: AppNotification,
   router: ReturnType<typeof useRouter>
 ) {
   switch (item.type) {
-    // ── AI risk alert → Analytics tab ──────────────────────────────────────
+    // AI risk alert → Analytics tab 
     case "AI_ALERT":
     if (item.eventId) {
         router.push({
@@ -128,7 +106,7 @@ function resolveNavigation(
     }
     break;
 
-    // ── Chat message → exact chat room ─────────────────────────────────────
+    // Chat message → exact chat room 
     case "CHAT_MESSAGE":
       if (item.eventId && item.roomId) {
         router.push({
@@ -145,13 +123,13 @@ function resolveNavigation(
       }
       break;
 
-    // ── Partner accepted / declined → Invitations inbox ────────────────────
+    // Partner accepted / declined → Invitations inbox
     case "PARTNER_ACCEPTED":
     case "PARTNER_DECLINED":
       router.push("/invitations/inbox");
       break;
 
-    // ── Task update → Kanban board, pre-select the event ───────────────────
+    // Task update → Kanban board, pre-select the event 
     case "TASK_UPDATE":
       if (item.eventId) {
         router.push({
@@ -163,7 +141,7 @@ function resolveNavigation(
       }
       break;
 
-    // ── Fallback: event detail if eventId is available ─────────────────────
+    // Fallback: event detail if eventId is available
     default:
       if (item.eventId) {
         router.push({
@@ -175,7 +153,7 @@ function resolveNavigation(
   }
 }
 
-// ── Destination hint (shown in item footer) ───────────────────────────────────
+// Destination hint (shown in item footer) 
 
 function destinationHint(item: AppNotification): string {
   switch (item.type) {
@@ -189,7 +167,7 @@ function destinationHint(item: AppNotification): string {
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers 
 
 function formatRelative(ts: number): string {
   const diff = Date.now() - ts;
@@ -229,7 +207,7 @@ function groupByDate(
   return Object.entries(groups).map(([title, data]) => ({ title, data }));
 }
 
-// ── Notification Item ─────────────────────────────────────────────────────────
+// Notification Item 
 
 function NotifItem({
   item,
@@ -262,7 +240,7 @@ function NotifItem({
   );
 }
 
-// ── Filter tabs ───────────────────────────────────────────────────────────────
+// Filter tabs 
 
 type FilterKey =
   | "ALL"
@@ -283,7 +261,7 @@ const FILTERS: {
   { key: "PROGRESS_REPORT",  label: "Reports",   icon: "bar-chart-outline"  },
 ];
 
-// ── Main Screen ───────────────────────────────────────────────────────────────
+// Main Screen 
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -335,7 +313,7 @@ export default function NotificationsScreen() {
     };
   }, [notifications]);
 
-  // ── Loading ──────────────────────────────────────────────────────────────────
+  // Loading 
   if (!notifications) {
     return (
       <SafeAreaView style={s.flex} edges={["top"]}>
@@ -348,12 +326,12 @@ export default function NotificationsScreen() {
     );
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // Render 
   return (
     <SafeAreaView style={s.flex} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.BG_DARK} />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={s.header}>
         <TouchableOpacity
           style={s.backBtn}
@@ -379,7 +357,7 @@ export default function NotificationsScreen() {
         )}
       </View>
 
-      {/* ── Info banner ── */}
+      {/* Info banner  */}
       <View style={s.infoBanner}>
         <Ionicons name="information-circle-outline" size={14} color={Colors.PRIMARY} />
         <Text style={s.infoBannerText}>
@@ -388,7 +366,7 @@ export default function NotificationsScreen() {
         </Text>
       </View>
 
-      {/* ── Filter chips — View wrapper prevents vertical expansion ── */}
+      {/* Filter chips — View wrapper prevents vertical expansion  */}
       <View style={s.filterWrapper}>
         <FlatList
           data={FILTERS}
@@ -431,7 +409,7 @@ export default function NotificationsScreen() {
         />
       </View>
 
-      {/* ── Content ── */}
+      {/* Content */}
       {filtered.length === 0 ? (
         <View style={s.emptyWrap}>
           <View style={s.emptyIcon}>
@@ -489,7 +467,7 @@ export default function NotificationsScreen() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
+// Styles 
 
 const s = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.BG_DARK },
@@ -572,7 +550,7 @@ const s = StyleSheet.create({
   emptyBody: { fontSize: 13, color: Colors.TEXT_MUTED, textAlign: "center", lineHeight: 21 },
 });
 
-// ── Notification item styles ──────────────────────────────────────────────────
+// Notification item styles 
 
 const n = StyleSheet.create({
   wrap: {

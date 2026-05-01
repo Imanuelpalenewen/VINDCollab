@@ -2,14 +2,6 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 
-/**
- * Returns all events where the current user's org is either:
- *  - the host (hostOrgId)
- *  - an ACCEPTED partner
- *
- * Each event is annotated with `hasReport` so the UI can show the
- * "Generate Report" button vs. the existing report.
- */
 export const getEventsForReport = query({
   args: {},
   handler: async (ctx) => {

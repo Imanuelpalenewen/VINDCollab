@@ -21,10 +21,17 @@ import { v } from "convex/values";
 export const getByEvent = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const ps = await ctx.db
       .query("partnerships")
       .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
       .collect();
+      
+    return await Promise.all(
+      ps.map(async (p) => {
+        const partnerOrg = await ctx.db.get(p.partnerOrgId);
+        return { ...p, partnerOrg };
+      })
+    );
   },
 });
 

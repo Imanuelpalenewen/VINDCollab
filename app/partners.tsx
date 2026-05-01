@@ -1,14 +1,3 @@
-/**
- * app/partners.tsx
- *
- * Partner Management screen.
- * Shows all organizations the current org is partnered with (or has invited),
- * grouped by event, with task completion stats and a performance score.
- *
- * Wire in more.tsx:
- *   onPress={() => router.push("/partners")}
- */
-
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -27,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/convex/_generated/api";
 import { Colors } from "@/constants/Colors";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// Types 
 
 type PartnerStatus = "PENDING" | "ACCEPTED" | "DECLINED";
 
@@ -42,7 +31,7 @@ type PartnershipItem = {
   taskStats: { total: number; done: number; avgHours: number; score: number };
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers 
 
 const PALETTE = ["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#06B6D4"];
 
@@ -76,7 +65,7 @@ function statusConfig(status: PartnerStatus) {
   }
 }
 
-// ── Partner Card ──────────────────────────────────────────────────────────────
+// Partner Card 
 
 function PartnerCard({
   item,
@@ -93,7 +82,7 @@ function PartnerCard({
 
   return (
     <TouchableOpacity style={card.wrap} onPress={onPress} activeOpacity={0.82}>
-      {/* ── Main row ── */}
+      {/* Main row */}
       <View style={card.row}>
         {/* Avatar */}
         <View style={[card.avatar, { backgroundColor: color + "22", borderColor: color + "55" }]}>
@@ -122,7 +111,7 @@ function PartnerCard({
         <Ionicons name="chevron-forward" size={16} color={Colors.TEXT_MUTED} style={{ opacity: 0.5 }} />
       </View>
 
-      {/* ── Stats row (only when active and tasks exist) ── */}
+      {/* Stats row (only when active and tasks exist) */}
       {isActive && item.taskStats.total > 0 && (
         <View style={card.stats}>
           <View style={card.statItem}>
@@ -164,7 +153,7 @@ function PartnerCard({
         </View>
       )}
 
-      {/* ── Role pill ── */}
+      {/* Role pill */}
       <View style={card.roleRow}>
         <Ionicons name="briefcase-outline" size={11} color={Colors.TEXT_MUTED} />
         <Text style={card.roleText}>{item.role}</Text>
@@ -180,7 +169,7 @@ function PartnerCard({
   );
 }
 
-// ── Empty State ───────────────────────────────────────────────────────────────
+// Empty State
 
 function EmptyState() {
   const router = useRouter();
@@ -207,7 +196,7 @@ function EmptyState() {
   );
 }
 
-// ── Main Screen ───────────────────────────────────────────────────────────────
+// Main Screen 
 
 export default function PartnerManagementScreen() {
   const router = useRouter();
@@ -221,7 +210,7 @@ export default function PartnerManagementScreen() {
     setTimeout(() => setRefreshing(false), 700);
   };
 
-  // ── Counts ──────────────────────────────────────────────────────────────────
+  // Counts 
   const counts = useMemo(() => {
     if (!partnerships) return { ALL: 0, ACCEPTED: 0, PENDING: 0 };
     return {
@@ -237,7 +226,7 @@ export default function PartnerManagementScreen() {
     return partnerships.filter((p) => p.status === filter);
   }, [partnerships, filter]);
 
-  // ── Loading ─────────────────────────────────────────────────────────────────
+  // Loading 
   if (!partnerships) {
     return (
       <SafeAreaView style={s.flex} edges={["top"]}>
@@ -250,12 +239,12 @@ export default function PartnerManagementScreen() {
     );
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // Render 
   return (
     <SafeAreaView style={s.flex} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.BG_DARK} />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={s.header}>
         <TouchableOpacity
           style={s.backBtn}
@@ -272,7 +261,7 @@ export default function PartnerManagementScreen() {
         </View>
       </View>
 
-      {/* ── Summary strip ── */}
+      {/* Summary strip */}
       <View style={s.summaryStrip}>
         {[
           { label: "Active", count: counts.ACCEPTED, color: Colors.SUCCESS, bg: "rgba(16,185,129,0.1)" },
@@ -286,7 +275,7 @@ export default function PartnerManagementScreen() {
         ))}
       </View>
 
-      {/* ── Filter tabs ── */}
+      {/* Filter tabs */}
       <View style={s.filterRow}>
         {(["ALL", "ACCEPTED", "PENDING"] as const).map((f) => (
           <TouchableOpacity
@@ -307,7 +296,7 @@ export default function PartnerManagementScreen() {
         ))}
       </View>
 
-      {/* ── What this screen shows ── */}
+      {/* What this screen shows */}
       <View style={s.infoBanner}>
         <Ionicons name="information-circle-outline" size={14} color={Colors.PRIMARY} />
         <Text style={s.infoBannerText}>
@@ -315,7 +304,7 @@ export default function PartnerManagementScreen() {
         </Text>
       </View>
 
-      {/* ── List ── */}
+      {/* List */}
       {displayed.length === 0 ? (
         <EmptyState />
       ) : (
@@ -352,7 +341,7 @@ export default function PartnerManagementScreen() {
   );
 }
 
-// ── Main Styles ───────────────────────────────────────────────────────────────
+// Main Styles
 
 const s = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.BG_DARK },
@@ -419,7 +408,7 @@ const s = StyleSheet.create({
   list: { paddingHorizontal: 20, paddingBottom: 40, gap: 10 },
 });
 
-// ── Card Styles ───────────────────────────────────────────────────────────────
+// Card Styles 
 
 const card = StyleSheet.create({
   wrap: {
@@ -465,7 +454,7 @@ const card = StyleSheet.create({
   dot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: Colors.TEXT_MUTED, flexShrink: 0 },
 });
 
-// ── Empty State Styles ────────────────────────────────────────────────────────
+// Empty State Styles 
 
 const e = StyleSheet.create({
   wrap: {
